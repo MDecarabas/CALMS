@@ -4,7 +4,7 @@ import params
 if params.set_visible_devices:
     os.environ["CUDA_VISIBLE_DEVICES"] = params.visible_devices
 
-import dfrac_tools, llms
+import dfrac_tools, llms, bluesky_tools
 
 import torch
 
@@ -253,6 +253,44 @@ class ToolChat(Chat):
             yield history
 
 
+class BlueskyChat(Chat):
+    """
+    Implements an agentexector for bluesky in a chat context. The agentexecutor is called in a fundimentally
+    differnet way than the other chains, so custom implementaiton for much of the class.
+    """
+    def _init_chain(self):
+        """
+        tools = [
+            dfrac_tools.DiffractometerAIO(params.spec_init)   
+        ]
+        """
+
+        tools = [bluesky_tools.diffractometer_tool]
+
+        memory = ConversationBufferWindowMemory(memory_key="chat_history", k=6)
+        conversation = initialize_agent(tools, 
+                                       self.llm, 
+                                       agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
+                                       verbose=True, 
+                                       handle_parsing_errors='Check your output and make sure it conforms!',
+                                       max_iterations=5,
+                                       memory=memory)
+        return memory, conversation
+    
+    def generate_response(self, history, debug_output):
+        user_message = history[-1][0] #History is list of tuple list. E.g. : [['Hi', 'Test'], ['Hello again', '']]
+
+        # TODO: Implement debug output for langchain agents. Might have to use a callback?
+        print(f'User input: {user_message}')
+        bot_message = self.conversation.run(user_message)
+        #Pass user message and get context and pass to model
+        history[-1][1] = "" #Replaces None with empty string -- Gradio code
+
+        for character in bot_message:
+            history[-1][1] += character
+            time.sleep(0.02)
+            yield history
+
 
 """
 ===========================
@@ -389,6 +427,20 @@ def main_interface(params, llm, embeddings):
         
             clear.click(lambda: tool_qa.memory.clear(), None, chatbot, queue=False)
 
+        with gr.Tab("Bluesky Agent"):
+            chatbot, msg, clear, disp_prompt_tool, submit_btn = init_chat_layout() #Init layout
+
+            tool_qa = BlueskyChat(llm, embeddings, None)
+
+            #Pass an empty string to context when don't want domain specific context
+            msg.submit(tool_qa.add_message, [msg, chatbot], [msg, chatbot], queue=False).then(
+                tool_qa.generate_response, [chatbot, disp_prompt_tool], chatbot #Use bot with context
+            )
+            submit_btn.click(tool_qa.add_message, [msg, chatbot], [msg, chatbot], queue=False).then(
+                tool_qa.generate_response, [chatbot, disp_prompt_tool], chatbot #Use bot with context
+            )
+        
+            clear.click(lambda: tool_qa.memory.clear(), None, chatbot, queue=False)
     
         with gr.Tab("Tips & Tricks"):
             gr.Markdown("""
