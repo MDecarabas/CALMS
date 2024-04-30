@@ -11,20 +11,9 @@ import pexpect
 
 
 def set_motor(
-    a: float,
-    b: float,
-    c: float,
-    alpha: float,
-    beta: float,
-    gamma: float,
-    peak: list[int],
-):
-    if len(peak) != 3:
-        return "Peak parameters were incorrect. Instrument was NOT set"
-
-    print(a, b, c, alpha, beta, gamma)
-    print(peak[0], peak[1], peak[2])
-
+    text: str,
+): 
+    print("hello baby")
     return "Diffractometer Set"
 
 
