@@ -265,7 +265,8 @@ class BlueskyChat(Chat):
         ]
         """
 
-        tools = [bluesky_tools.diffractometer_tool]
+        # tools = [bluesky_tools.ophyd_motor_tool, bluesky_tools.ophyd_tool_builder]
+        tools = [bluesky_tools.code_generator_tool]
 
         memory = ConversationBufferWindowMemory(memory_key="chat_history", k=6)
         conversation = initialize_agent(tools, 
