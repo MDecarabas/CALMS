@@ -1,0 +1,745 @@
+How to interrupt/stop/abort a running plan & recover to safe settings
+*********************************************************************
+
+* Terminate or Interrupt a run
+
+* Handle Exceptions
+
+* Recover to Safe Settings
+
+* Summary
+
+In this notebook, we’ll show how to do each of these with a simple
+plan that does these steps:
+
+1. opens a simulated shutter
+
+2. reads an EPICS PV
+
+3. closes the shutter
+
+Then, we’ll also show how to suspend the RunEngine for a typical case
+when the shutters close during a run and then resume the plan once the
+shutters re-open. Finally, we’ll show a plan to abort the RunEngine
+completely and return it to *idle* state.
+
+Setup just enough of bluesky and ophyd for this notebook.
+
+   from apstools.devices import SimulatedApsPssShutterWithStatus
+   from bluesky import plans as bp
+   from bluesky import RunEngine
+   import databroker
+   from ophyd import EpicsSignal
+
+   cat = databroker.temp().v2
+   RE = RunEngine()
+   RE.subscribe(cat.v1.insert)
+
+   IOC = "gp:"
+   detector = EpicsSignal(f"{IOC}userCalc8", name="detector")
+   detector.wait_for_connection()
+   shutter = SimulatedApsPssShutterWithStatus(name="shutter")
+
+
+Terminate or Interrupt
+======================
+
+**Q**: Once a run has been started, how can it be stopped before it
+finishes its planned sequence of actions?
+
+
+Interactive Interruption
+------------------------
+
+Bluesky implements interactive plan interruption with the *Control C*
+("^C") keyboard combination. From the docs:
+
++-----------+------------+
+| keyboard  | outcome    |
+|===========|============|
+| "^C"      | pause soon |
++-----------+------------+
+| "^C ^C"   | pause now  |
++-----------+------------+
+
+These will cause the "RE" to pause (enter the paused state) which
+allows the user to decide, interactively, what to do next:
+
++-----------------+--------------------------------------------------------+
+| command         | outcome                                                |
+|=================|========================================================|
+| "RE.resume()"   | Safely resume plan.                                    |
++-----------------+--------------------------------------------------------+
+| "RE.abort()"    | Perform cleanup. Mark as aborted.                      |
++-----------------+--------------------------------------------------------+
+| "RE.stop()"     | Perform cleanup. Mark as success.                      |
++-----------------+--------------------------------------------------------+
+| "RE.halt()"     | Do not perform cleanup — just stop.                    |
++-----------------+--------------------------------------------------------+
+| "RE.state"      | Show the RunEngine state. Check if ‘paused’ or ‘idle’. |
++-----------------+--------------------------------------------------------+
+
+If the RE is not responding to "^C", if you hit it 10 times rapidly it
+will return the prompt, however the "RE" will be left in an invalid
+state with no graceful recovery possible. This should be used as a
+last resort. If the "RE" has become hung that is likly a bug in one of
+the ophyd objects methods or the plan.
+
+
+Programmatic Interruption
+-------------------------
+
+There are two ways for a program to interrupt the "RunEngine":
+suspenders and exceptions.
+
+
+Suspenders
+~~~~~~~~~~
+
+Suspenders pause the RunEngine (without asking the user for
+interaction) while some condition has changed (shutter closed, beam
+dumped, water flow is low, …). The RunEngine continues to monitor and
+will resume automatically when the condition returns to normal.
+
+
+Exceptions
+~~~~~~~~~~
+
+An unhandled Python Exception will terminate a plan run by
+"bluesky.RunEngine".
+
+Next, we create "MyException", a custom exception, and "my_plan", a
+bluesky plan that can raise this custom exception. If "MyException" is
+raised, then "bp.count" will not be run and "After count" will not be
+printed.
+
+**More Reading**
+
+* https://www.sitepoint.com/python-exception-handling/
+
+   class MyException(Exception):
+       """Our custom exception."""
+
+Make a simple plan that acquires data from a detector. Add diagnostic
+print statements to show progress through each action of the plan. The
+detector is an EPICS analog value. We will ignore the value of that
+detector to focus on the details of how to interrupt a plan.
+
+   from bluesky import plan_stubs as bps
+   def my_plan(terminate=False):
+       print(f"Start my_plan(), with {terminate=}.")
+       yield from bps.mv(shutter, "open")
+       if terminate:
+           print("By request, the plan will terminate.")
+           raise MyException(f"Requested {terminate=}")
+
+       print(f"Before count(), {shutter.state=}.")
+       yield from bp.count([detector])
+
+       yield from bps.mv(shutter, "close")
+       print(f"After my_plan(), {shutter.state=}.")
+
+   RE(my_plan())
+
+Start my_plan(), with terminate=False.
+Before count(), shutter.state='open'.
+After my_plan(), shutter.state='close'.
+
+('1dbae8de-1ac2-4fbb-9fcc-e7340d98e0a7',)
+
+When the plan is run with "terminate=True" (the plan *will* raise the
+exception), then execution of "my_plan()" stops before "bp.count".
+
+To keep this notebook running, we *wrap* (see caution below) our call
+to the "RunEngine" here with a "try..except" clause. The clause
+intercepts the exception so that it does not stop Python with an
+error.
+
+**Caution**: Wrapping the "RunEngine" with "try..except" is not
+considered best practice since it aborts "RE" completely, subverting
+many features already built into the "RunEngine" (such as "^C ^C"
+described above). It is recommended to **wrap the plan** with
+"try..except" rather than wrap the "RE", as will be shown in the
+examples below.
+
+   try:                                    # caution: not recommended
+       RE(my_plan(True))
+   except Exception as exinfo:
+       print(f"Found an exception: {exinfo}  {shutter.state=}")
+
+Start my_plan(), with terminate=True.
+By request, the plan will terminate.
+
+Run aborted
+Traceback (most recent call last):
+  File "/home/prjemian/Documents/projects/Bluesky/bluesky/src/bluesky/run_engine.py", line 1605, in _run
+    msg = self._plan_stack[-1].send(resp)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/ipykernel_194270/1968779660.py", line 7, in my_plan
+    raise MyException(f"Requested {terminate=}")
+MyException: Requested terminate=True
+
+Found an exception: Requested terminate=True  shutter.state='open'
+
+Notice that Python kept running because of the "try..except" clause,
+even after reporting the exception.
+
+
+Handle Exceptions
+=================
+
+**Q**: How to handle Python Exceptions?
+
+As shown above, *exceptions* are Python’s way of interrupting program
+execution when some condition has been detected. Consider this
+simplification of our bluesky plan:
+
+   def my_plan():
+       yield from bps.mv(shutter, "open")
+       yield from bp.count([detector])
+       yield from bps.mv(shutter, "close")
+
+If an exception is raised (for whatever reason) when opening the
+shutter or counting, the call to close the shutter will not happen and
+the shutter will remain open.
+
+There are many types of exceptions; it is even possible to create your
+own. These exception types describe the type of condition that
+interrupted program flow. Python has statements to handle exceptions,
+as described in the next section.
+
+
+Python’s "try..except..else..finally" clause
+--------------------------------------------
+
+Consider this "problematic()" function which will raise an exception:
+
+   def problematic():
+       raise RuntimeException("example of raising an exception")
+
+We can handle it with a "try..except" clause, so that program flow can
+continue:
+
+   try:
+       problematic()
+   except RuntimeError as exinfo:
+       print(f"Found an exception: {exinfo}")
+
+**More Reading**
+
+* https://www.freecodecamp.org/news/exception-handling-python/
+
+* https://www.pythontutorial.net/python-basics/python-try-except-else/
+
+* https://www.geeksforgeeks.org/try-except-else-and-finally-in-python/
+
+
+"try..except..else..finally" in bluesky plans
+---------------------------------------------
+
+In "bluesky", "try..except" is a common pattern, however there is some
+additional complication due to plans being generator co-routines so
+two decorator functions available:
+
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| decorator                                                                                                                                                                                                                                                 | synopsis                                                                                                                                                                                                                                                  |
+|===========================================================================================================================================================================================================================================================|===========================================================================================================================================================================================================================================================|
+| "finalize_decorator"                                                                                                                                                                                                                                      | Simple. Runs the "final_plan" no matter what happens in the decorated plan.                                                                                                                                                                               |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| "contingency_decorator"                                                                                                                                                                                                                                   | Full-featured. Handle each aspect of Python’s "try..except..else..finally" clause.                                                                                                                                                                        |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+**Exception handling in generator coroutines**
+
+Generator coroutines expose exception throwing as a user communication
+channel. This means there is some in-band encoding of Python’s control
+exceptions with the users exceptions. When the "close()" method is
+called on a generator coroutine, Python will throw a GeneratorExit
+exception into the coroutine. If you catch this exception and try to
+yield another "Msg", either explicitly in an "except" block or in a
+"finally" block, Python will raise a "RuntimeError" at the call site.
+
+If you want to use "try..except..else..finally" directly, you must
+handle this case. See the source of these decorators for a guide.
+
+**More Reading**
+
+* https://realpython.com/primer-on-python-decorators/
+
+* https://pythonbasics.org/decorators/
+
+We’ll need the decorators from "bluesky.preprocessors":
+
+
+The "finalize_decorator()"
+--------------------------
+
+The "finalize_decorator(final_plan)" will always run the "final_plan"
+after the wrapped plan is run, even if the wrapped plan raises an
+exception.
+
+**Hint**: Consider this as a simple means to call
+"restore_to_safe_settings()" after a plan finishes.
+
+Let’s improve our plan by ensuring the shutter is always closed, even
+if the plan raises an exception.
+
+   from bluesky import preprocessors as bpp
+
+   def close_the_shutter():
+       print("close_the_shutter()")
+       yield from bps.mv(shutter, "close")
+
+   @bpp.finalize_decorator(close_the_shutter)
+   def my_plan(terminate=False):
+       print(f"Start my_plan(), with {terminate=}.")
+       yield from bps.mv(shutter, "open")
+       if terminate:
+           print("By request, the plan will terminate.")
+           raise MyException(f"Requested {terminate=}")
+
+       print(f"Before count(), {shutter.state=}.")
+       yield from bp.count([detector])
+
+       print(f"After my_plan(), {shutter.state=}.")
+
+This code is functionally equivalent to:
+
+   try:
+       yield from bps.mv(shutter, "open")
+       yield from bp.count([detector])
+   finally:
+       yield from bps.mv(shutter, "close")
+
+
+Always **wrap the plan**, not the "RE"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As stated above, when using "try..except" clauses in bluesky, we
+should always **wrap the plan** and not the "RE" itself.
+
+Here, we apply "try..except" to keep the notebook from stopping with
+an error.
+
+Our wrapper must accept the same arguments and pass them to the
+wrapped plan. It’s easiest if we use generic terms ("*args, **kwargs")
+so we do not need to keep this code synchronized with the wrapped
+plan.
+
+We add additional diagnostic print statements.
+
+   def wrap_the_plan(*args, **kwargs):
+       print("Start wrap_the_plan()")
+       try:
+           yield from my_plan(*args, **kwargs)
+       except Exception as exinfo:
+           print(f"Stopped by the error: {exinfo}  {shutter.state=}")
+       print(f"Finish wrap_the_plan()  {shutter.state=}")
+
+Show what happens when the plan runs and *no* exception is raised.
+
+   RE(wrap_the_plan())
+
+Start wrap_the_plan()
+Start my_plan(), with terminate=False.
+Before count(), shutter.state='open'.
+After my_plan(), shutter.state='open'.
+close_the_shutter()
+Finish wrap_the_plan()  shutter.state='close'
+
+('a96675f4-8c04-461a-adeb-e062798c1280',)
+
+Now, show what happens if "my_plan" raises an exception:
+
+   RE(wrap_the_plan(True))
+
+Start wrap_the_plan()
+Start my_plan(), with terminate=True.
+By request, the plan will terminate.
+close_the_shutter()
+Stopped by the error: Requested terminate=True  shutter.state='close'
+Finish wrap_the_plan()  shutter.state='close'
+
+()
+
+
+The "contingency_decorator()"
+-----------------------------
+
+To learn about specific exceptions than use the
+"contingency_decorator()" which will handle each aspect of Python’s
+"try..except..else..finally" clause.
+
+   def my_except_plan(ex):
+       print(f"my_except_plan(): {ex=}, {shutter.state=}")
+       yield from bps.null()
+
+   def my_else_plan():
+       print(f"my_else_plan(): plan completed successfully! {shutter.state=}")
+       yield from bps.null()
+       yield from bps.null()
+
+   def close_the_shutter():
+       print("close_the_shutter()")
+       yield from bps.mv(shutter, "close")
+
+   @bpp.contingency_decorator(
+       except_plan=my_except_plan,
+       else_plan=my_else_plan,
+       final_plan=close_the_shutter,
+   )
+   def my_plan(terminate=False):
+       print(f"Start my_plan(), with {terminate=}.")
+       yield from bps.mv(shutter, "open")
+       if terminate:
+           print("By request, the plan will terminate.")
+           raise MyException(f"Requested {terminate=}")
+
+       print(f"Before count(), {shutter.state=}.")
+       yield from bp.count([detector])
+
+       print(f"After my_plan(), {shutter.state=}.")
+
+This code is functionally equivalent to:
+
+   try:
+       yield from bps.mv(shutter, "open")
+       yield from bp.count([detector])
+   except Exception:
+       yield from bps.null()
+   else:
+       yield from bps.null()
+       yield from bps.null()
+   finally:
+       yield from bps.mv(shutter, "close")
+
+   RE(wrap_the_plan(False))
+
+Start wrap_the_plan()
+Start my_plan(), with terminate=False.
+Before count(), shutter.state='open'.
+After my_plan(), shutter.state='open'.
+my_else_plan(): plan completed successfully! shutter.state='open'
+close_the_shutter()
+Finish wrap_the_plan()  shutter.state='close'
+
+('31978648-ac39-425d-b70a-74fdfdb7948a',)
+
+   RE(wrap_the_plan(True))
+
+Start wrap_the_plan()
+Start my_plan(), with terminate=True.
+By request, the plan will terminate.
+my_except_plan(): ex=MyException('Requested terminate=True'), shutter.state='open'
+close_the_shutter()
+Stopped by the error: Requested terminate=True  shutter.state='close'
+Finish wrap_the_plan()  shutter.state='close'
+
+()
+
+
+Suspending the RunEngine
+========================
+
+Suspenders pause the RunEngine (without asking the user for
+interaction) while some condition has changed (shutter closed, beam
+dumped, water flow is low, …). The RunEngine continues to monitor and
+will resume automatically when the condition returns to normal.
+
+To demonstrate a suspender, we must have a plan that will run long
+enough (longer than our "my_plan()" takes) for the suspender to
+activate.
+
+   def countdown(t=10):
+       print(f"Countdown from {t=}")
+       while t > 0:
+           print(f"{t=}")
+           yield from bps.sleep(1)
+           t -= 1
+       print("countdown complete.")
+
+   RE(countdown(5))
+
+Countdown from t=5
+t=5
+t=4
+t=3
+t=2
+t=1
+countdown complete.
+
+()
+
+Next, we’ll need to simulate something that will suspend the
+RunEngine. Let’s suspend if the shutter closes. It’s a bit tricky
+since we must queue the shutter to close and then re-open outside of
+our plan.
+
+   from apstools.utils import run_in_thread
+   import time
+
+   @run_in_thread
+   def blink_shutter_thread():
+       t0 = time.time()
+       t = 2.3
+       print(f"{time.time()-t0:.2f}s  blink_shutter(): waiting for {t} s")
+       time.sleep(t)
+
+       t = 3.2
+       print(f"{time.time()-t0:.2f}s  blink_shutter(): closing the shutter for {t} s")
+       shutter.close()
+       time.sleep(t)
+
+       print(f"{time.time()-t0:.2f}s  blink_shutter(): opening the shutter")
+       shutter.open()
+       print(f"{time.time()-t0:.2f}s  blink_shutter(): ending")
+
+Let’s test that the "blink_shutter_thread()" function works as
+expected. Since this kicks off the action in a thread, the command
+line returns right away. We need to sleep long enough for it to
+finish.
+
+   blink_shutter_thread()
+   time.sleep(7)
+
+0.00s  blink_shutter(): waiting for 2.3 s
+2.30s  blink_shutter(): closing the shutter for 3.2 s
+5.51s  blink_shutter(): opening the shutter
+6.37s  blink_shutter(): ending
+0.00s  blink_shutter(): waiting for 2.3 s
+2.30s  blink_shutter(): closing the shutter for 3.2 s
+Suspending....To get prompt hit Ctrl-C twice to pause.
+Suspension occurred at 2024-08-17 09:45:07.
+Justification for this suspension:
+Signal shutter_pss_state is low
+5.81s  blink_shutter(): opening the shutter
+6.08s  blink_shutter(): endingSuspender SuspendBoolLow(Signal(name='shutter_pss_state', parent='shutter', value=1, timestamp=1723905911.1114528), sleep=5, pre_plan=None, post_plan=None, tripped_message=) reports a return to nominal conditions. Will sleep for 5 seconds and then release suspension at 2024-08-17 09:45:16.
+
+The shutter will be zero when closed, and one when open. Looking at
+the list of pre-defined suspenders, bluesky.suspenders.SuspendBoolLow
+fits this pattern. Let’s tell it to wait 5 seconds after the shutters
+open before releasing the suspension on the RunEngine.
+
+   from bluesky.suspenders import SuspendBoolLow
+
+   shutter_closed_suspender = SuspendBoolLow(shutter.pss_state, sleep=5)
+
+Since we start with the shutter closed, we’ll need to first open the
+shutter, then call a plan with the suspender and wait for it to
+finish, then close the shutter. If we close the shutter with a
+"finalize_decorator()" at the end of the "countdown()" plan (as
+before), the "RE" will suspend without an end. The next plan
+implements these steps:
+
+   def blink_during_countdown(*args, **kwargs):
+       @bpp.suspend_decorator(shutter_closed_suspender)
+       def _plan():
+           yield from countdown(*args, **kwargs)
+
+       t0 = time.time()
+       print(f"{shutter.state=}")
+       yield from bps.mv(shutter, "open")
+
+       blink_shutter_thread()  # operate the shutter in the background
+       yield from _plan()  # run the countdown plan with the shutter suspender
+
+       yield from bps.mv(shutter, "close")
+       print(f"{shutter.state=}  total execution time: {time.time()-t0:.2f} s")
+
+Run the suspender demonstration. The plan will interrupt after ~2
+seconds, then resume ~3 seconds later.
+
+   RE(blink_during_countdown())
+
+shutter.state='open'
+Countdown from t=10
+t=10
+t=9
+t=8
+t=7
+t=6
+t=5
+t=4
+t=3
+t=2
+t=1
+countdown complete.
+shutter.state='close'  total execution time: 21.79 s
+
+()
+
+
+Abort the RunEngine from a plan
+-------------------------------
+
+If you absolutely must **stop** the RunEngine from within a plan, yet
+do it gracefully, "abort_run_engine_to_idle()" is the plan for you:
+
+   def abort_run_engine_to_idle(reason):
+       print(f"Programmatically aborting the RunEngine: {reason=}.")
+       print("RE returning to idle (after the pause and error message).")
+       # clear out any remaining tasks
+       yield from bps.clear_checkpoint()
+       # pause that triggers automatic RE.abort()
+       yield from bps.pause()
+       # RE.state will be "idle"
+
+   @bpp.finalize_decorator(close_the_shutter)
+   def my_plan(terminate=False):
+       print(f"Start my_plan(), with {terminate=}.")
+       yield from bps.mv(shutter, "open")
+       if terminate:
+           print("By request, the plan AND the RE will terminate.")
+           yield from abort_run_engine_to_idle("On request.")
+
+       print(f"Before count(), {shutter.state=}.")
+       yield from bp.count([detector])
+
+       print(f"After my_plan(), {shutter.state=}.")
+
+   try:
+       RE(wrap_the_plan(True))
+   except Exception as exinfo:
+       print(f"caught {exinfo=}")
+       print(f"{RE.state=}")
+
+Start wrap_the_plan()
+Start my_plan(), with terminate=True.
+By request, the plan AND the RE will terminate.
+Programmatically aborting the RunEngine: reason='On request.'.
+RE returning to idle (after the pause and error message).
+Pausing...
+close_the_shutter()
+Stopped by the error:   shutter.state='open'
+Finish wrap_the_plan()  shutter.state='open'
+caught exinfo=RunEngineInterrupted("\nYour RunEngine is entering a paused state. These are your options for changing\nthe state of the RunEngine:\n\nRE.resume()    Resume the plan.\nRE.abort()     Perform cleanup, then kill plan. Mark exit_stats='aborted'.\nRE.stop()      Perform cleanup, then kill plan. Mark exit_status='success'.\nRE.halt()      Emergency Stop: Do not perform cleanup --- just stop.\n")
+RE.state='idle'
+
+
+Recover Safe Settings
+=====================
+
+**Q**: How to recover to safe settings?
+
+For some instruments, *safe settings* may be pre-determined positions
+and settings for the various parts of the instrument. Other
+instruments may define *safe settings* based on some context, such as
+recent activities.
+
+Since the variations are plentiful, we describe *schematically*, how
+to recover to safe settings.
+
+Keep in mind when restoring settings, that the order in which items
+are restored may be important. In some cases, it may be necessary to
+set some settings and wait for them to be set, before proceeding to
+other settings.
+
+
+Restore to Pre-determined Settings
+----------------------------------
+
+This has been demonstrated above, with the "close_the_shutter()" plan.
+That plan could be generalized, such as:
+
+   def safe_settings():
+       yield from close_the_shutter()
+       yield from park_the_detector()
+       yield from park_the_diffractometer()
+       yield from reset_the_amplifiers()
+       # ...
+
+where each of these actions are described in their own plans, based on
+the needs of the instrument.
+
+
+Restore to Context-dependent Settings
+-------------------------------------
+
+In this variation from the pre-determined settings (above), it is
+necessary to describe the context. Arguments could be added to the
+"safe_settings()" plan which provide it context to decide what
+settings to restore and to what values.
+
+Or, the context may wish to restore to settings before the plan
+started, or may include results from some post-scan analysis of the
+collected data (such as move the position to the computed peak
+center).
+
+
+Restore to previous values
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To implement this feature, you’ll need to collect the values of the
+items to be restored before the plan is run and then restore those
+items after the plan finishes. Consider "wrap_the_plan()" above, the
+two print statements are positioned at exactly the places we need to
+collect and restore, respectively:
+
+   def wrap_the_plan(terminate=False):
+       print("Start wrap_the_plan()")
+       safe_settings = yield from collect_safe_settings()
+       try:
+           yield from my_plan(terminate)
+       except Exception as exinfo:
+           print(f"Stopped by the error: {exinfo}  {shutter.state=}")
+       yield from restore_safe_settings(safe_settings)
+       print(f"Finish wrap_the_plan()  {shutter.state=}")
+
+In this case, "safe_settings" is some Python structure (list,
+dictionary, class instance) with the values defined by the context.
+Here, it is a dictionary with the ophyd objects used as the
+dictionary’s keys:
+
+   def collect_safe_settings():
+       settings = dict()
+       for pos in [
+           m1, m2, m3, m4, m5, m6,
+           slit1.top, slit1.bot, slit1.inb, slit1.out,
+       ]:
+           settings[pos] = device.position
+       for signal in [amp1.gain, mono.feedback, heater.setpoint]:
+           settings[signal] = signal.get()
+       settings[heater.power] = "off"  # override
+       return settings
+
+   def restore_safe_settings(settings):
+       # Restore one at a time in reverse order (very conservative).
+       for signal, value in reversed(settings.items()):
+           signal, value = pair
+           yield from bps.mv(signal, value)
+
+
+Summary
+=======
+
+Started with a plan:
+
+   def my_plan():
+       yield from bps.mv(shutter, "open")
+       yield from bp.count([detector])
+       yield from bps.mv(shutter, "close")
+
+Added "finalize_decorator" (or "contingency_decorator") to ensure the
+shutter would always be closed after the plan:
+
+   def close_the_shutter():
+       yield from bps.mv(shutter, "close")
+
+   @bpp.finalize_decorator(close_the_shutter)
+   def my_plan():
+       yield from bps.mv(shutter, "open")
+       yield from bp.count([detector])
+
+Added "wrap_the_plan()" to save settings before the plan and restore
+them afterwards:
+
+   def wrap_the_plan(*args, **kwargs):
+       safe_settings = yield from collect_safe_settings()
+       try:
+           yield from my_plan(*args, **kwargs)
+       except Exception as exinfo:
+           print(f"Report the exception: {exinfo}")
+       yield from restore_safe_settings(safe_settings)
+
+**Remember**: When using "try..except" clauses in bluesky, **wrap the
+plan**, not the "RE".

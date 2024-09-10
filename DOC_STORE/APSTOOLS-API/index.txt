@@ -1,0 +1,29 @@
+API Documentation
+*****************
+
+Ophyd-style support for EPICS & synApps structures (records and
+databases).
+
+ Callbacks
+
+Receive *documents* from the bluesky RunEngine.
+
+ Devices
+
+Ophyd-style Devices for the APS.
+
+ File Writers
+
+Write data files during data acquisition.
+
+ Plans
+
+Customize your measurement procedures.
+
+ synApps
+
+Ophyd-style support for common EPICS structures, including *synApps*.
+
+ Utilities
+
+Assists measurement, data exploration, and the user experience.

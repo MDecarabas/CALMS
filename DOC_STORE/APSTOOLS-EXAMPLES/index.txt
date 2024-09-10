@@ -1,0 +1,13 @@
+Examples
+********
+
+Examples show the steps that demonstrate how something was done, often
+with minimal explanation.
+
+In addition to the examples presented below, there are many Jupyter
+notebooks online to provide additional Bluesky training for the APS.
+Further, NSLS-II provides online notebooks which can be executed
+online (in a web browser). See the Bluesky home page for more details.
+
+ DevicesDevice Examples File WritersFile Writer Examples How-ToHow-To
+Examples PlansPlan Examples DownloadsFile Downloads for the Examples

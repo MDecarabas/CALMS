@@ -1,0 +1,31 @@
+synApps asyn record
+*******************
+
+see the synApps "asyn" module suppport: https://github.com/epics-
+modules/asyn
+
+Ophyd support for the EPICS asyn record
+
+Public Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "AsynReco  | EPICS asyn record support in ophyd                                                         |
+| rd"(*args, |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+see:
+   https://github.com/epics-modules/asyn
+
+class apstools.synApps.asyn.AsynRecord(*args: Any, **kwargs: Any)
+
+   EPICS asyn record support in ophyd
+
+   See:
+      https://epics.anl.gov/modules/soft/asyn/R4-36/asynRecord.html
+
+   See:
+      https://github.com/epics-modules/asyn
+
+   See:
+      https://epics.anl.gov/modules/soft/asyn/

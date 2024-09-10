@@ -1,0 +1,82 @@
+Device Examples
+***************
+
+* Area Detector with default HDF5 File Name
+
+  * EPICS Area Detector IOC
+
+  * File Directories
+
+  * ophyd
+
+  * bluesky
+
+  * databroker
+
+  * punx
+
+  * Recapitulation
+
+* Area Detector with custom HDF5 File Name
+
+  * EPICS Area Detector IOC
+
+  * ophyd
+
+  * databroker
+
+  * punx
+
+* Area Detector, Single mode, HDF5 file
+
+  * EPICS Area Detector IOC
+
+  * File Directories
+
+  * ophyd
+
+  * bluesky
+
+  * databroker
+
+  * punx
+
+  * Recapitulation
+
+* ADPerkinElmer Area Detector with default HDF5 File Name
+
+  * EPICS Area Detector IOC
+
+  * ophyd
+
+  * bluesky
+
+* ADPilatus Area Detector with default HDF5 File Name
+
+  * EPICS Area Detector IOC
+
+  * ophyd
+
+  * bluesky
+
+* Integration with APS Data Management (DM)
+
+  * DM Overview
+
+  * Bluesky integration
+
+* The synApps "sscan" and "SscanRecord"
+
+  * sscan record configuration
+
+  * Python setup
+
+  * 1. Press SCAN button of a preconfigured scan
+
+  * 2. Run preconfigured "sscan" record
+
+  * 3. Setup and run same scan from bluesky
+
+  * 4. Post data to bluesky as a run
+
+  * Combined setup, scan, post data

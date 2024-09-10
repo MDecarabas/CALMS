@@ -1,0 +1,65 @@
+How-To Examples
+***************
+
+* How to interrupt/stop/abort a running plan & recover to safe
+  settings
+
+  * Terminate or Interrupt
+
+  * Handle Exceptions
+
+  * Suspending the RunEngine
+
+  * Recover Safe Settings
+
+  * Summary
+
+* What are the objects to control?
+
+  * "listobjects()" function
+
+  * "listdevice()" function
+
+  * ".component_names" method
+
+  * ".summary()" method
+
+  * "%wa" magic command
+
+  * "listplans()" function
+
+  * "findCatalogsInNamespace()" function
+
+* How to use NeXus/HDF5 Templates
+
+  * Overview
+
+  * Build the powder diffraction instrument
+
+  * Write data to a NeXus/HDF5 file
+
+  * Use the NXmonopd application definition
+
+  * Run a 2\theta:\theta scan
+
+  * Look at the NeXus/HDF5 *NXmonopd* file
+
+* How to Search for Bluesky Data?
+
+  * What is a catalog?
+
+  * What is a run?
+
+  * How to retrieve a run?
+
+  * Search with "listruns()"
+
+  * Search with a Filtered catalog
+
+  * Other searches:
+
+* How to setup logging
+
+  * Handlers
+
+  * What are the logging levels?

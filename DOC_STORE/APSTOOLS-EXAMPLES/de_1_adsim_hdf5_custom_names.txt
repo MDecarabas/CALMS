@@ -1,0 +1,426 @@
+Area Detector with custom HDF5 File Name
+****************************************
+
+Demonstrate the setup of an EPICS area detector to acquire an image
+with bluesky and write it to an HDF5 file. Override the default ophyd
+naming process (which uses random UUIDs) for image files. Instead, let
+the user control the image file name using the features of the EPICS
+Area Detector HDF5 plugin. Show the image using the databroker.
+
+**Contents**
+
+* EPICS Area Detector IOC is pre-built
+
+* ophyd to describe the hardware
+
+* bluesky for the measurement
+
+* databroker to view the image
+
+* punx (not part of Bluesky) to look at the HDF5 file
+
+
+EPICS Area Detector IOC
+=======================
+
+This example uses a prebuilt ADSimDetector driver. Prepare as in
+Example with default file names. Refer to that document for
+explanations.
+
+
+ophyd
+=====
+
+The steps of the basic example are combined together here. Refer to
+that document for explanations. As is customary, the imports come
+first, then the constants, and classes.
+
+   from apstools.devices import AD_EpicsFileNameHDF5Plugin
+   from apstools.devices import AD_full_file_name_local
+   from apstools.devices import ensure_AD_plugin_primed
+   from apstools.devices import CamMixin_V34 as CamMixin
+   from apstools.devices import SingleTrigger_V34 as SingleTrigger
+   from apstools.devices import SimDetectorCam_V34
+   from ophyd import ADComponent
+   from ophyd import DetectorBase
+   from ophyd import SimDetectorCam
+   from ophyd.areadetector.plugins import ImagePlugin_V34 as ImagePlugin
+   import apstools
+   import bluesky
+   import bluesky.plans as bp
+   import bluesky.plan_stubs as bps
+   import databroker
+   import hdf5plugin
+   import pathlib
+
+   IOC = "ad:"
+   IMAGE_DIR = "adsimdet/%Y/%m/%d"
+   AD_IOC_MOUNT_PATH = pathlib.Path("/tmp")
+   BLUESKY_MOUNT_PATH = pathlib.Path("/tmp/docker_ioc/iocad/tmp")
+
+   # MUST end with a `/`, pathlib will NOT provide it
+   WRITE_PATH_TEMPLATE = f"{AD_IOC_MOUNT_PATH / IMAGE_DIR}/"
+   READ_PATH_TEMPLATE = f"{BLUESKY_MOUNT_PATH / IMAGE_DIR}/"
+
+
+HDF5: AD_EpicsFileNameHDF5Plugin
+--------------------------------
+
+The "hdf1" component is where we depart from the default ophyd
+settings. The modifications come from "apstools.devices" in
+"AD_EpicsFileNameHDF5Plugin()". We repeat certain cautionary details
+here:
+
+   Replace standard ophyd file naming algorithm (where file names are
+   defined as UUID strings, virtually guaranteeing that no existing
+   images files will ever be overwritten).
+
+Caller is responsible for setting values of these Components of the
+plugin:
+
+* "array_counter"
+
+* "auto_increment"
+
+* "auto_save"
+
+* "compression" (only the HDF plugin)
+
+* "create_directory"
+
+* "file_name"
+
+* "file_number"
+
+* "file_path"
+
+* "file_template"
+
+* "num_capture"
+
+Also note:
+
+   It is allowed to set "file_template="%s%s.h5"" if the file name
+   should not include the file number.
+
+
+Detector Object
+---------------
+
+With the above setup, create the Python detector object, "adsimdet"
+and connect with EPICS.
+
+   from apstools.devices import ad_creator
+
+   plugins = []
+   plugins.append({"cam": {"class": SimDetectorCam_V34}})
+   plugins.append(
+       {
+           "hdf1": {
+               "class": AD_EpicsFileNameHDF5Plugin,
+               "write_path_template": WRITE_PATH_TEMPLATE,
+               "read_path_template": READ_PATH_TEMPLATE,
+           }
+       }
+   )
+   plugins.append("image")
+
+   adsimdet = ad_creator(IOC, name="adsimdet", plugins=plugins)
+   adsimdet.wait_for_connection(timeout=15)
+   adsimdet.wait_for_connection(timeout=15)
+   adsimdet.read_attrs.append("hdf1")
+   adsimdet.hdf1.create_directory.put(-5)
+
+   # override default setting from ophyd
+   adsimdet.cam.stage_sigs["wait_for_plugins"] = "Yes"
+   adsimdet.hdf1.stage_sigs["blocking_callbacks"] = "No"
+   adsimdet.hdf1.stage_sigs.move_to_end("capture", last=True)
+   adsimdet.image.stage_sigs["blocking_callbacks"] = "No"
+
+   # Needed if IOC has just been started
+   adsimdet.hdf1.auto_increment.put("Yes")
+   adsimdet.hdf1.auto_save.put("Yes")
+   adsimdet.hdf1.create_directory.put(-5)
+
+   ensure_AD_plugin_primed(adsimdet.hdf1, True)
+
+Show the plugin staging now.
+
+   adsimdet.hdf1.stage_sigs
+
+OrderedDict([('enable', 1),
+             ('file_write_mode', 'Stream'),
+             ('blocking_callbacks', 'No'),
+             ('parent.cam.array_callbacks', 1),
+             ('capture', 1)])
+
+**Configure the plugin’s file naming PVs**
+
+As noted above, the caller is now responsible for setting various
+values of the plugin. Here is a bluesky plan as an example. Feel free
+to set the values you need with your own code.
+
+   def prepare_count(
+       plugin, file_name, acquire_time, acquire_period,
+       n_images=1,
+       auto_increment="Yes",
+       auto_save="Yes",
+       compression=None,
+       create_directory=-5,
+       file_path=None,
+       file_template=None,
+   ):
+       compression = compression or "zlib"
+       file_path = file_path or plugin.write_path_template  # WRITE_PATH_TEMPLATE
+       file_template = file_template or "%s%s_%4.4d.h5"
+       n_images = max(n_images, 1)
+       image_mode = "Multiple" if n_images > 1 else "Single"
+
+       yield from bps.mv(
+           adsimdet.cam.num_images, n_images,
+           adsimdet.cam.acquire_time, acquire_time,
+           adsimdet.cam.acquire_period, acquire_period,
+           adsimdet.cam.image_mode, image_mode,
+           plugin.auto_increment, auto_increment,
+           plugin.auto_save, auto_save,
+           plugin.create_directory, create_directory,
+           plugin.file_name, file_name,
+           plugin.file_path, file_path,
+           plugin.num_capture, n_images,  # save all frames received
+           plugin.compression, compression,
+           plugin.file_template, file_template,
+       )
+
+
+bluesky
+-------
+
+Take an image.
+
+   RE = bluesky.RunEngine({})
+   cat = databroker.temp().v2
+   RE.subscribe(cat.v1.insert)
+   RE.md["versions"]["apstools"] = apstools.__version__
+   RE.md["versions"]["hdf5plugin"] = hdf5plugin.version
+
+   NUM_FRAMES = 5
+   RE(prepare_count(adsimdet.hdf1, "test_file", 0.001, 0.002, NUM_FRAMES))
+   uids = RE(
+       bp.count(
+           [adsimdet],
+           md=dict(
+               title="Area Detector with custom HDF5 File Name",
+               purpose="image",
+               image_file_name_style="EPICS(AD PVs)",
+           )
+       )
+   )
+
+   # confirm the plugin captured the expected number of frames
+   assert adsimdet.hdf1.num_captured.get() == NUM_FRAMES
+
+   # Show the image file name on the bluesky (local) workstation:
+   local_file_name = AD_full_file_name_local(adsimdet.hdf1)
+   print(f"{local_file_name.exists()=} {local_file_name=}")
+
+local_file_name.exists()=True local_file_name=PosixPath('/tmp/docker_ioc/iocad/tmp/adsimdet/2024/08/25/test_file_0002.h5')
+
+
+databroker
+==========
+
+View the image from the databroker catalog.
+
+   run = cat.v2[uids[0]]
+   dataset = run.primary.read()
+   dataset["adsimdet_image"][0][0].plot.pcolormesh()
+
+   # Show the image file name on the bluesky (local) workstation
+   # Use information from the databroker run
+   _r = run.primary._resources[0]
+   fname = pathlib.Path(f"{_r['root']}{_r['resource_path']}")
+   print(f"{fname.exists()=}\n{fname=}")
+
+   # confirm the name above () is the same
+   print(f"{(local_file_name == fname)=}")
+
+/home/prjemian/.conda/envs/bluesky_2024_2/lib/python3.11/site-packages/databroker/intake_xarray_core/base.py:23: FutureWarning: The return type of `Dataset.dims` will be changed to return a set of dimension names in future, in order to be more consistent with `DataArray.dims`. To access a mapping from dimension names to lengths, please use `Dataset.sizes`.
+  'dims': dict(self._ds.dims),
+
+fname.exists()=True
+fname=PosixPath('/tmp/docker_ioc/iocad/tmp/adsimdet/2024/08/25/test_file_0002.h5')
+(local_file_name == fname)=True
+
+[image]
+
+   run = cat.v2[uids[0]]
+
+   local_file_name = AD_full_file_name_local(adsimdet.hdf1)
+   print(f"{local_file_name.exists()=}\n{local_file_name=}")
+
+   rsrc = run.primary._resources[0]
+   fname = pathlib.Path(f"{rsrc['root']}{rsrc['resource_path']}")
+   print(f"{fname.exists()=}\n{fname=}")
+
+   # confirm they are the same
+   print(f"{(local_file_name == fname)=}")
+
+   # confirm the data is of the expected shape
+   print(f"{run.primary.read()['adsimdet_image'].shape=}")
+   assert run.primary.read()["adsimdet_image"].shape == (1, NUM_FRAMES, 1024, 1024)
+
+local_file_name.exists()=True
+local_file_name=PosixPath('/tmp/docker_ioc/iocad/tmp/adsimdet/2024/08/25/test_file_0002.h5')
+fname.exists()=True
+fname=PosixPath('/tmp/docker_ioc/iocad/tmp/adsimdet/2024/08/25/test_file_0002.h5')
+(local_file_name == fname)=True
+run.primary.read()['adsimdet_image'].shape=(1, 5, 1024, 1024)
+
+
+punx
+====
+
+Next, we demonstrate access to the HDF5 image file using the punx
+program.
+
+   from apstools.utils import unix
+
+   for line in unix(f"punx tree {local_file_name}"):
+       print(line.decode().strip())
+
+!!! WARNING: this program is not ready for distribution.
+
+/tmp/docker_ioc/iocad/tmp/adsimdet/2024/08/25/test_file_0002.h5 : NeXus data file
+  entry:NXentry
+    @NX_class = "NXentry"
+    data:NXdata
+      @NX_class = "NXdata"
+      data:NX_UINT8[5,1024,1024] = __array
+        __array = [
+            [
+                [8, 18, 11, '...', 12]
+                [14, 15, 10, '...', 11]
+                [10, 12, 15, '...', 18]
+                ...
+                [12, 11, 17, '...', 17]
+              ]
+            [
+                [7, 18, 14, '...', 20]
+                [19, 17, 19, '...', 7]
+                [19, 10, 20, '...', 12]
+                ...
+                [7, 14, 10, '...', 20]
+              ]
+            [
+                [11, 13, 16, '...', 8]
+                [16, 18, 8, '...', 18]
+                [17, 15, 9, '...', 7]
+                ...
+                [10, 13, 15, '...', 24]
+              ]
+            [
+                [18, 8, 17, '...', 14]
+                [7, 9, 13, '...', 20]
+                [19, 9, 10, '...', 19]
+                ...
+                [9, 12, 11, '...', 25]
+              ]
+            [
+                [18, 8, 8, '...', 19]
+                [20, 14, 20, '...', 20]
+                [7, 9, 20, '...', 8]
+                ...
+                [19, 14, 15, '...', 14]
+              ]
+          ]
+        @NDArrayDimBinning = [1 1]
+        @NDArrayDimOffset = [0 0]
+        @NDArrayDimReverse = [0 0]
+        @NDArrayNumDims = 2
+        @signal = 1
+    instrument:NXinstrument
+      @NX_class = "NXinstrument"
+      NDAttributes:NXcollection
+        @NX_class = "NXcollection"
+        @hostname = "arf.jemian.org"
+        NDArrayEpicsTSSec:NX_UINT32[5] = [1093459878, 1093459878, 1093459878, 1093459878, 1093459878]
+          @NDAttrDescription = "The NDArray EPICS timestamp seconds past epoch"
+          @NDAttrName = "NDArrayEpicsTSSec"
+          @NDAttrSource = "Driver"
+          @NDAttrSourceType = "NDAttrSourceDriver"
+        NDArrayEpicsTSnSec:NX_UINT32[5] = [745783385, 746863292, 748942542, 751032765, 753122083]
+          @NDAttrDescription = "The NDArray EPICS timestamp nanoseconds"
+          @NDAttrName = "NDArrayEpicsTSnSec"
+          @NDAttrSource = "Driver"
+          @NDAttrSourceType = "NDAttrSourceDriver"
+        NDArrayTimeStamp:NX_FLOAT64[5] = [1093459878.7232177, 1093459878.7458045, 1093459878.74786, 1093459878.7499433, 1093459878.7520318]
+          @NDAttrDescription = "The timestamp of the NDArray as float64"
+          @NDAttrName = "NDArrayTimeStamp"
+          @NDAttrSource = "Driver"
+          @NDAttrSourceType = "NDAttrSourceDriver"
+        NDArrayUniqueId:NX_INT32[5] = [3236, 3237, 3238, 3239, 3240]
+          @NDAttrDescription = "The unique ID of the NDArray"
+          @NDAttrName = "NDArrayUniqueId"
+          @NDAttrSource = "Driver"
+          @NDAttrSourceType = "NDAttrSourceDriver"
+      detector:NXdetector
+        @NX_class = "NXdetector"
+        data:NX_UINT8[5,1024,1024] = __array
+          __array = [
+              [
+                  [8, 18, 11, '...', 12]
+                  [14, 15, 10, '...', 11]
+                  [10, 12, 15, '...', 18]
+                  ...
+                  [12, 11, 17, '...', 17]
+                ]
+              [
+                  [7, 18, 14, '...', 20]
+                  [19, 17, 19, '...', 7]
+                  [19, 10, 20, '...', 12]
+                  ...
+                  [7, 14, 10, '...', 20]
+                ]
+              [
+                  [11, 13, 16, '...', 8]
+                  [16, 18, 8, '...', 18]
+                  [17, 15, 9, '...', 7]
+                  ...
+                  [10, 13, 15, '...', 24]
+                ]
+              [
+                  [18, 8, 17, '...', 14]
+                  [7, 9, 13, '...', 20]
+                  [19, 9, 10, '...', 19]
+                  ...
+                  [9, 12, 11, '...', 25]
+                ]
+              [
+                  [18, 8, 8, '...', 19]
+                  [20, 14, 20, '...', 20]
+                  [7, 9, 20, '...', 8]
+                  ...
+                  [19, 14, 15, '...', 14]
+                ]
+            ]
+          @NDArrayDimBinning = [1 1]
+          @NDArrayDimOffset = [0 0]
+          @NDArrayDimReverse = [0 0]
+          @NDArrayNumDims = 2
+          @signal = 1
+        NDAttributes:NXcollection
+          @NX_class = "NXcollection"
+          ColorMode:NX_INT32[5] = [0, 0, 0, 0, 0]
+            @NDAttrDescription = "Color mode"
+            @NDAttrName = "ColorMode"
+            @NDAttrSource = "Driver"
+            @NDAttrSourceType = "NDAttrSourceDriver"
+      performance
+        timestamp:NX_FLOAT64[5,5] = __array
+          __array = [
+              [0.000233554, 0.126672046, 37.925298495, 63.15521263468026, 0.0]
+              [0.040277158, 0.04070268, 0.040278826, 196.54725438226674, 198.61552072048974]
+              [0.039427267, 0.039458489, 0.079737315, 202.74471229752362, 200.6588759603957]
+              [0.039358019, 0.039393824, 0.119131139, 203.07751793783714, 201.45866312920924]
+              [0.039170129, 0.039203981, 0.15833512, 204.06090901839792, 202.10298258529124]
+            ]

@@ -1,0 +1,171 @@
+synApps sscan record
+********************
+
+see the synApps "sscan" module suppport: https://github.com/epics-
+modules/sscan
+
+Ophyd support for the EPICS synApps sscan record
+
+see:  https://epics.anl.gov/bcda/synApps/sscan/SscanRecord.html
+
+EXAMPLE:
+
+   import apstools.synApps
+   scans = apstools.synApps.SscanDevice("xxx:", name="scans")
+   scans.select_channels()     # only the channels configured in EPICS
+
+Public Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "SscanRec  | EPICS synApps sscan record: used as "$(P):scan(N)"                                         |
+| ord"(*arg  |                                                                                            |
+| s,         |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "SscanDev  | EPICS synApps XXX IOC setup of sscan records: "$(P):scan$(N)"                              |
+| ice"(*arg  |                                                                                            |
+| s,         |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+Private Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "sscanPos  | positioner of an EPICS sscan record                                                        |
+| itioner"(  |                                                                                            |
+| *args,     |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "sscanDet  | detector of an EPICS sscan record                                                          |
+| ector"(*a  |                                                                                            |
+| rgs,       |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "sscanTri  | detector trigger of an EPICS sscan record                                                  |
+| gger"(*ar  |                                                                                            |
+| gs,        |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+class apstools.synApps.sscan.SscanDevice(*args: Any, **kwargs: Any)
+
+   EPICS synApps XXX IOC setup of sscan records: "$(P):scan$(N)"
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "select_c  | Select only the scans that are configured in EPICS                                         |
+   | hannels"() |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   reset()
+
+      set all fields to default values
+
+   scan1
+
+      alias of "SscanRecord"
+
+   scan2
+
+      alias of "SscanRecord"
+
+   scan3
+
+      alias of "SscanRecord"
+
+   scan4
+
+      alias of "SscanRecord"
+
+   scanH
+
+      alias of "SscanRecord"
+
+   select_channels()
+
+      Select only the scans that are configured in EPICS
+
+class apstools.synApps.sscan.SscanRecord(*args: Any, **kwargs: Any)
+
+   EPICS synApps sscan record: used as "$(P):scan(N)"
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "defined_  | True if will be used in EPICS                                                              |
+   | in_EPICS"  |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "select_c  | Select channels that are configured in EPICS                                               |
+   | hannels"() |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   property defined_in_EPICS
+
+      True if will be used in EPICS
+
+   reset()
+
+      set all fields to default values
+
+   select_channels()
+
+      Select channels that are configured in EPICS
+
+   set(value, **kwargs)
+
+      interface to use bps.mv()
+
+class apstools.synApps.sscan.sscanDetector(*args: Any, **kwargs: Any)
+
+   detector of an EPICS sscan record
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "defined_  | True if defined in EPICS                                                                   |
+   | in_EPICS"  |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   property defined_in_EPICS
+
+      True if defined in EPICS
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.sscan.sscanPositioner(*args: Any, **kwargs: Any)
+
+   positioner of an EPICS sscan record
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "defined_  | True if defined in EPICS                                                                   |
+   | in_EPICS"  |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   property defined_in_EPICS
+
+      True if defined in EPICS
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.sscan.sscanTrigger(*args: Any, **kwargs: Any)
+
+   detector trigger of an EPICS sscan record
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   property defined_in_EPICS
+
+      True if defined in EPICS
+
+   reset()
+
+      set all fields to default values

@@ -1,0 +1,129 @@
+EPICS base sub record & synApps userAve records
+***********************************************
+
+The "sub" record is part of EPICS base:
+https://epics.anl.gov/base/R7-0/6-docs/subRecord.html
+
+The user average databases ("$(P)userAve$(N)") are from synApps.
+
+Ophyd support for the EPICS sub record
+
+https://epics.anl.gov/base/R7-0/6-docs/subRecord.html
+
+Public Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "UserAver  | EPICS synApps XXX IOC setup of user average: "$(P):userAve$(N)"                            |
+| ageN"(*ar  |                                                                                            |
+| gs,        |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "UserAver  | EPICS synApps XXX IOC setup of user averaging sub records: "$(P):userAve$(N)"              |
+| ageDevice  |                                                                                            |
+| "(*args,   |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "SubRecor  | EPICS base sub record support in ophyd                                                     |
+| d"(*args,  |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "SubRecor  | Number channel of a sub record: A-L                                                        |
+| dChannel"  |                                                                                            |
+| (*args,    |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+class apstools.synApps.sub.SubRecord(*args: Any, **kwargs: Any)
+
+   EPICS base sub record support in ophyd
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   See:
+      http://htmlpreview.github.io/?https://github.com/epics-
+      modules/calc/blob/R3-6-1/documentation/calcDocs.html
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.sub.SubRecordChannel(*args: Any, **kwargs: Any)
+
+   Number channel of a sub record: A-L
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.sub.UserAverageDevice(*args: Any, **kwargs: Any)
+
+   EPICS synApps XXX IOC setup of user averaging sub records:
+   "$(P):userAve$(N)"
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   average1
+
+      alias of "UserAverageN"
+
+   average10
+
+      alias of "UserAverageN"
+
+   average2
+
+      alias of "UserAverageN"
+
+   average3
+
+      alias of "UserAverageN"
+
+   average4
+
+      alias of "UserAverageN"
+
+   average5
+
+      alias of "UserAverageN"
+
+   average6
+
+      alias of "UserAverageN"
+
+   average7
+
+      alias of "UserAverageN"
+
+   average8
+
+      alias of "UserAverageN"
+
+   average9
+
+      alias of "UserAverageN"
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.sub.UserAverageN(*args: Any, **kwargs: Any)
+
+   EPICS synApps XXX IOC setup of user average: "$(P):userAve$(N)"
+
+   This database uses a sub record for most features plus additional
+   records to support done, acquire, clear, and other features.
+
+   It *uses* a "sub" record and other, hence not exactly a
+   "SubRecord()".
+
+   reset()
+
+      set all fields to default values

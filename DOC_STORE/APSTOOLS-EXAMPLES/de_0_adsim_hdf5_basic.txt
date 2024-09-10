@@ -1,0 +1,923 @@
+Area Detector with default HDF5 File Name
+*****************************************
+
+**Objective**
+
+Demonstrate and explain the setup of an EPICS area detector to acquire
+an image with bluesky and write it to an HDF5 file. Use the standard
+ophyd conventions for file naming and other setup. Show how to
+retrieve the image using the databroker.
+
+**Contents**
+
+* EPICS Area Detector IOC is pre-built
+
+* File Directories are different on IOC and bluesky workstation
+
+* ophyd to describe the hardware
+
+* bluesky for the measurement
+
+* databroker to view the image
+
+* punx (not part of Bluesky) to look at the HDF5 file
+
+* Recapitulation - rendition with no explanations
+
+
+EPICS Area Detector IOC
+=======================
+
+This notebook uses an EPICS server (IOC), with prefix ""ad:"". The IOC
+provides a simulated EPICS area detector.
+
+IOC details
+
+The IOC is a prebuilt ADSimDetector driver, packaged in a docker image
+(prjemian/synapps). The EPICS IOC is configured with prefix "ad:"
+using the bash shell script:
+
+   IOC = "ad:"
+
+
+File Directories
+================
+
+The area detector IOC and the bluesky workstation should see the same
+directory where image files will be written by the IOC. However, the
+directory may be mounted on one path in the IOC and a different path
+in the bluesky workstation. That’s the case for the IOC and
+workstation here. The paths are shown in the next table.
+
++-------------------+-------------------------------+
+| system            | file directory                |
+|===================|===============================|
+| area detector IOC | "/tmp"                        |
++-------------------+-------------------------------+
+| bluesky           | "/tmp/docker_ioc/iocad/tmp"   |
++-------------------+-------------------------------+
+
+Typically, the file system is mounted on both the IOC and the
+workstation at the time of acquisition. Each may mount the filesystem
+at different mount points. But mounting the filesystems is not
+*strictly necessary* at the time the images area acquired.
+
+An alternative (to mounting the file directory on both IOC &
+workstation) is to *copy the file(s)* written by the IOC to a
+directory on the workstation.
+
+The only time bluesky needs access to the image file is when a Python
+process (usually via databroker) has requested the image data from the
+file.
+
+For convenience now and later, define these two directories using
+pathlib, from the Python standard library.
+
+   import pathlib
+
+   AD_IOC_MOUNT_PATH = pathlib.Path("/tmp")
+   BLUESKY_MOUNT_PATH = pathlib.Path("/tmp/docker_ioc/iocad/tmp")
+
+Image files are written to a subdirectory (*image directory*) of the
+mount path.
+
+In this case, we use a feature of the area detector HDF5 file writer
+plugin that accepts time format codes, such as "%Y" for 4-digit year,
+to build the image directory path based on the current date. (For
+reference, Python’s datetime package uses these same codes.)
+
+Here, we create an "example" directory with subdirectory for year,
+month, and day (such as: "example/2022/07/04"):
+
+   IMAGE_DIR = "example/%Y/%m/%d"
+
+Using the two pathlib objects created above, create two string objects
+for configuration of the HDF5 plugin.
+
+The area detector IOC expects each string to end with a "/" character
+but will add it if it is not provided. But ophyd requires the value
+sent to EPICS to match exactly the value that the IOC reports, thus we
+make the correct ending here.
+
+   # MUST end with a `/`, pathlib will NOT provide it
+   WRITE_PATH_TEMPLATE = f"{AD_IOC_MOUNT_PATH / IMAGE_DIR}/"
+   READ_PATH_TEMPLATE = f"{BLUESKY_MOUNT_PATH / IMAGE_DIR}/"
+
+
+ophyd
+=====
+
+In ophyd, the support for hardware involving multiple PVs is
+constructed as a subclass of "ophyd.Device".
+
+The EPICS area detector is described with a special "Device" subclass
+called "ophyd.areadetector.DetectorBase". An area detector has a
+detector driver, called a "cam" in the ophyd support, which is another
+subclass.
+
+Before you can create an ophyd object for your ADSimDetector detector,
+you’ll need to create an ophyd class that describes the features of
+the EPICS Area Detector interface you plan to use, such as the camera
+(*ADSimDetector*, in this case) and any plugins such as computations
+or file writers.
+
+Each of the plugins (image, PVA, HDF5, …) has its own subclass. The
+general structure is:
+
+   DetectorBase
+       CamBase
+       ImagePlugin
+       HDF5Plugin
+       PvaPlugin
+       ...
+
+**Which plugins are needed by bluesky?**
+
+In this example, we must define:
+
++------------+-----------------+--------------------------+
+| name       | subclass of     | why?                     |
+|============|=================|==========================|
+| "cam"      | "CamBase"       | generates the image data |
++------------+-----------------+--------------------------+
+| "hdf1"     | "HDF5Plugin"    | output to an HDF5 file   |
++------------+-----------------+--------------------------+
+| "image1"   | "ImagePlugin"   | make the image viewable  |
++------------+-----------------+--------------------------+
+
+The component name "hdf1", the "1" is customary, referring to the
+"HDF1:" part of the EPICS PV name for the *first* HDF5 file writer
+plugin in the EPICS IOC. (It is possible to create an IOC with more
+than one HDF5 file writer plugin.) Similar for the "image1" component.
+
+In EPICS Area Detector, an NDArray is the data passed from a detector
+"cam" to plugins. Each plugin references its input NDArray by the port
+name of the source.
+
+   To connect plugin "downstream" to plugin "upstream", set
+   "downstream.nd_array_port" (**Port**) to "upstream.port_name"
+   (**Plugin name**).
+
+In this example screen view, using the ADSimDetector, all the plugins
+shown are configured to receive their input from "SIM1" which is the
+"cam". (While the screen view shows the PVA1 plugin enabled, we will
+not enable that in this example.)
+
+[image: image1][image]
+
+Each port named by the detector **must** have its plugin (or "cam")
+defined in the ophyd detector class.
+
+You can check if you missed any plugins once you have created your
+detector object by calling its ".missing_plugins()" method. For
+example, where our example ADSimDetector IOC uses the "ad:" PV prefix:
+
+   from ophyd.areadetector import SimDetector
+   det = SimDetector("ad:", name="det")
+   det.missing_plugins()
+
+We expect to see an empty list, "[]", as the result of this last
+command. Otherwise, the list will describe the plugins needed.
+
+
+cam
+---
+
+The "cam" attribute describes the EPICS area detector camera driver
+for this detector.
+
+The ophyd package has support for many of the area detector drivers. A
+complete list is available in the ophyd source code. The principle
+difference between area detector drivers is the "cam" support, which
+is specific to the detector driver being configured. All the other
+plugin support is independent of the "cam" support. Use steps similar
+to these to implement for a different detector driver.
+
+The ADSimDetector driver is in this list, as "SimDetectorCam". But the
+ophyd support is out of date for the EPICS area detector release 3.10
+used here, so we need to make modifications with a subclass, as is
+typical. The changes we see are current since ADSimDetector v3.1.1.
+
+The "SingleTrigger" mixin class configures the "cam" for data
+acquisition as explained. As with the "HDF5Plugin" above, the ophyd
+support is not up to date with more recent developments in EPICS Area
+Detector. The updates are available from
+"apstools.devices.SingleTrigger_V34".
+
+In the apstools package, "apstools.devices.SimDetectorCam_V34"
+provides the updates needed. (Eventually, these updates will be
+*hoisted* into the ophyd package.)
+
+   from apstools.devices import SimDetectorCam_V34
+
+
+HDF5
+----
+
+The "hdf1" attribute describes the HDF5 File Writing plugin for this
+detector.
+
+Support for writing images to HDF5 files using the area detector HDF5
+File Writer plugin comes from the "ophyd.areadetector.HDF5Plugin".
+This plugin comes in different versions for different versions of area
+detector "ADCore". The "HDF5Plugin" ophyd support was written for an
+older version of the HDF5 File Writer plugin, but there is a
+"HDF5Plugin_V34" version that may be used with Area Detector release
+3.4 and above. Our IOC uses release 3.10.
+
+The plugin provides supports writing HDF5 files. Some modification is
+needed, via a mixin class, for the manner of acquisition.
+
+Here we use a custom HDF5 plugin class with
+"FileStoreHDF5IterativeWrite". This mixin class configures the HDF5
+plugin to collect one or more images with the IOC, then writes file
+name and path and HDF5 address information of each frame in the data
+stream from the bluesky RunEngine.
+
+We use the "HDF5FileWriterPlugin" class from *apstools*. This class
+modifies the "stage()" method so the setting of "capture" is last in
+the list. If it is not last, then any HDF5 plugin settings coming
+after might not succeed, since they cannot be done in capture mode.
+
+   from apstools.devices import HDF5FileWriterPlugin
+
+
+image
+-----
+
+The "image" attribute provides the detector image through EPICS
+Channel Access PVs for clients.
+
+
+detector
+--------
+
+The "ad_creator()" function from *apstools* will create the detector
+object with just the features we’ll describe.
+
+"ad_creator()" calls the "ad_class_factory()" factory function to
+create a custom detector class with only the plugins that we specify.
+The factory has defaults for each of the plugin. We’ll need to
+override those defaults with our special needs.
+
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| attribute                                                                                                                                                             | purpose                                                                                                                                                               | remarks                                                                                                                                                               |
+|=======================================================================================================================================================================|=======================================================================================================================================================================|=======================================================================================================================================================================|
+| ""cam""                                                                                                                                                               | create the image                                                                                                                                                      | override with custom class                                                                                                                                            |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| ""hdf1""                                                                                                                                                              | save image to file                                                                                                                                                    | override with custom class and file paths                                                                                                                             |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| ""image""                                                                                                                                                             | view the image                                                                                                                                                        | all defaults are acceptable                                                                                                                                           |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+In the "HDF5FileWriterPlugin" class (from *apstools*), we apply the
+two strings defined above for the file paths on the IOC (write) and on
+the bluesky workstation (read).
+
+See these references, and others, for more information about the
+*factory method* design pattern:
+
+* https://www.geeksforgeeks.org/factory-method-python-design-patterns/
+
+* https://realpython.com/factory-method-python/
+
+Create the Python detector object, "adsimdet", with these
+customizations and wait for it to connect with EPICS.
+
+   from apstools.devices import ad_creator
+
+   plugins = []
+   plugins.append({"cam": {"class": SimDetectorCam_V34}})
+   plugins.append(
+       {
+           "hdf1": {
+               "class": HDF5FileWriterPlugin,
+               "write_path_template": WRITE_PATH_TEMPLATE,
+               "read_path_template": READ_PATH_TEMPLATE,
+           }
+       }
+   )
+   plugins.append("image")
+
+   adsimdet = ad_creator(IOC, name="adsimdet", plugins=plugins)
+   adsimdet.wait_for_connection(timeout=15)
+
+Check that all plugins used by the IOC have been defined in the Python
+structure.
+
+"adsimdet.missing_plugins()" should return an empty list: "[]".
+
+   adsimdet.missing_plugins()
+
+[]
+
+Show the plugin chain as a directed graph with
+"adsimdet.visualize_asyn_digraph()". The graph shows the image from
+"SIM1" port goes to both "Image1" and "FileHDF1". (These names are
+from the EPICS area detector IOC support code.)
+
+   adsimdet.visualize_asyn_digraph()
+
+[image]
+
+Configure "adsimdet" so the HDF5 plugin (by its attribute name "hdf1")
+will be called during "adsimdet.read()", as used by data acquisition.
+This plugin is already "enabled" (above) but we must change the kind
+attribute. Ophyd support will check this attribute to see if the
+plugin should be read during data acquisition. If we don’t change
+this, the area detector image(s) will not be reported in the run’s
+documents.
+
+**Note**: Here, we assign the "kind" attribute by number "3", a
+shorthand which is interpreted by ophyd as "ophyd.Kind.config |
+ophyd.Kind.normal".
+
+   adsimdet.hdf1.kind = 3  # config | normal
+
+Configure the HDF5 plugin so it will create up to 5 subdirectories for
+the image directory.
+
+**NOTE**: We *must* do this step before staging so the IOC is prepared
+when the "FilePath" PV is set during "adsimdet.stage()".
+
+   adsimdet.hdf1.create_directory.put(-5)
+
+Wait for all plugins to finish.
+
+One of the changes for the SingleTrigger mixin adds the
+"adsimdet.cam.wait_for_plugins" signal. This enables clients to know,
+via the "adsimdet.cam.acquire_busy" signal, when the camera and *all*
+enabled plugins are finished. For this to work, each plugin has
+"blocking_callbacks" set to ""No"" and the cam has "wait_for_plugins"
+set to ""Yes"". Then, "cam.acquire_busy" will remain ""Acquiring"" (or
+"1") until all plugins have finished processing, then it goes to
+""Done"" (or "0").
+
+   # override default setting from ophyd
+   adsimdet.hdf1.stage_sigs["blocking_callbacks"] = "No"
+   adsimdet.cam.stage_sigs["wait_for_plugins"] = "Yes"
+
+For good measure, also make sure the "image" plugin does not block.
+
+   adsimdet.image.stage_sigs["blocking_callbacks"] = "No"
+
+Consider enabling and setting any of these additional configurations,
+or others as appropriate to your situation.
+
+Here, we accept the default acquisition time, but acquire 5 frames
+with "zlib" data compression.
+
+The ""LZ4"" compression is good for speed and compression but requires
+the hdf5plugin package to read the compressed data from the HDF5 file.
+
+But since our last step uses a tool that does not yet have this
+package, we’ll use "zlib" compression.
+
+   adsimdet.cam.stage_sigs["acquire_period"] = 0.015
+   adsimdet.cam.stage_sigs["acquire_time"] = 0.01
+   adsimdet.cam.stage_sigs["num_images"] = 5
+   adsimdet.hdf1.stage_sigs["num_capture"] = 0  # capture ALL frames received
+   adsimdet.hdf1.stage_sigs["compression"] = "zlib"  # LZ4
+   # adsimdet.hdf1.stage_sigs["queue_size"] = 20
+
+*Prime* the HDF5 plugin, if necessary.
+
+Even though area detector has a "LazyOpen" feature, ophyd needs to
+know how to describe the image structure before it starts saving data.
+If the file writing (HDF5) plugin does not have the dimensions, bit
+depth, color mode, … of the expected image, then ophyd does not have
+access to the metadata it needs.
+
+NOTE: The "adsimdet.hdf1.lazy_open" signal should remain ""No"" if
+data is to be read later from the databroker. Attempts to read the
+data (via "run.primary.read()") will see this exception raised:
+
+   "event_model.EventModelError: Error instantiating handler class
+   <class 'area_detector_handlers.handlers.AreaDetectorHDF5Handler'>"
+
+This code checks if the plugin is ready and, if not, makes the plugin
+ready by acquiring (a.k.a. *priming*) a single image into the plugin.
+
+   from apstools.devices import ensure_AD_plugin_primed
+
+   # this step is needed for ophyd
+   ensure_AD_plugin_primed(adsimdet.hdf1, True)
+
+Print some values as diagnostics.
+
+   adsimdet.read_attrs
+
+['hdf1']
+
+   adsimdet.stage_sigs
+
+OrderedDict([('cam.acquire', 0), ('cam.image_mode', 1)])
+
+   adsimdet.cam.stage_sigs
+
+OrderedDict([('wait_for_plugins', 'Yes'),
+             ('acquire_period', 0.015),
+             ('acquire_time', 0.01),
+             ('num_images', 5)])
+
+   adsimdet.hdf1.stage_sigs
+
+OrderedDict([('enable', 1),
+             ('blocking_callbacks', 'No'),
+             ('parent.cam.array_callbacks', 1),
+             ('create_directory', -3),
+             ('auto_increment', 'Yes'),
+             ('array_counter', 0),
+             ('auto_save', 'Yes'),
+             ('num_capture', 0),
+             ('file_template', '%s%s_%6.6d.h5'),
+             ('file_write_mode', 'Stream'),
+             ('capture', 1),
+             ('compression', 'zlib')])
+
+
+bluesky
+=======
+
+Within the Bluesky framework, bluesky is the package that orchestrates
+the data acquisition steps, including where to direct acquired data
+for storage. Later, we’ll use databroker to access the image data.
+
+As a first step, configure the notebook for graphics. (While
+"%matplotlib inline" works well for documentation, you might prefer
+the additional interactive features possible by changing to
+"%matplotlib widget".)
+
+   # Import matplotlib for inline graphics
+   %matplotlib inline
+   import matplotlib.pyplot as plt
+
+   plt.ion()
+
+<contextlib.ExitStack at 0x7f19950e3d90>
+
+We’ll use a temporary databroker catalog for this example and setup
+the RunEngine object "RE".
+
+You may wish to use your own catalog:
+
+   cat = databroker.catalog[YOUR_CATALOG_NAME]
+
+Then setup the bluesky run engine "RE", connect it with the databroker
+catalog, and enable (via "BestEffortCallback") some screen output
+during data collection.
+
+   from bluesky import plans as bp
+   from bluesky import RunEngine
+   from bluesky import SupplementalData
+   from bluesky.callbacks.best_effort import BestEffortCallback
+   import databroker
+
+   cat = databroker.temp().v2
+   RE = RunEngine({})
+   RE.subscribe(cat.v1.insert)
+   RE.subscribe(BestEffortCallback())
+   RE.preprocessors.append(SupplementalData())
+
+**Take an image with the area detector**
+
+Also, capture the list of identifiers (there will be only one item).
+Add custom metadata to identify the imaging run.
+
+Note that the HDF plugin will report, briefly before acquisition, (in
+its "WriteMessage" PV):
+
+   ERROR: capture is not permitted in Single mode
+
+Ignore that.
+
+   uids = RE(bp.count([adsimdet], md=dict(title="Area Detector with default HDF5 File Name", purpose="image")))
+
+Transient Scan ID: 1     Time: 2024-08-25 11:41:47
+Persistent Unique Scan ID: '03540259-129f-4dcd-ac4d-6e2c2dc77527'
+New stream: 'primary'
++-----------+------------+
+|   seq_num |       time |
++-----------+------------+
+|         1 | 11:41:47.6 |
++-----------+------------+
+generator count ['03540259'] (scan num: 1)
+
+
+databroker
+==========
+
+To emphasize the decisions associated with each step to get the image
+data, the procedure is shown in parts.
+
+**Get the run from the catalog**
+
+The run data comes from the databroker catalog.
+
+We *could* assume we want the most recent run in the catalog ("run =
+cat.v2[-1]"). But, since we have a list of run *uid* strings, let’s
+use that instead. If we wanted to access this run later, when neither
+of those two choices are possible, then the run could be access by its
+*Transient Scan ID* as reported above: "run = cat.v2[1]"
+
+There are three ways to reference a run in the catalog:
+
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| argument                                                                                                                                                              | example                                                                                                                                                               | description                                                                                                                                                           |
+|=======================================================================================================================================================================|=======================================================================================================================================================================|=======================================================================================================================================================================|
+| negative integer                                                                                                                                                      | "cat.v2[-1]"                                                                                                                                                          | **list-like**, "-1" is most recent, "-2" is 2nd most recent, …                                                                                                        |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| positive integer                                                                                                                                                      | "cat.v2[1]"                                                                                                                                                           | argument is the **Scan ID** (if search is not unique, returns most recent)                                                                                            |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| string                                                                                                                                                                | "cat.v2["a1b2c3d"]"                                                                                                                                                   | argument is a **``uid``** (just the first few characters that make the catalog search unique are needed)                                                              |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+We called the "RE" with "bp.count()", which only generates a single
+run, so there is no assumption here using the "uids" list from this
+session.
+
+   run = cat.v2[uids[0]]
+   run
+
+BlueskyRun
+  uid='03540259-129f-4dcd-ac4d-6e2c2dc77527'
+  exit_status='success'
+  2024-08-25 11:41:47.396 -- 2024-08-25 11:41:47.679
+  Streams:
+    * primary
+
+**Get the image frame from the run**
+
+From the run, we know the image data is in the primary stream.
+
+(In fact, that is the only stream in this run.) Get the run’s data as
+an xarray Dataset object.
+
+Recall, above, we said that the "LZ4" compression needs help from the
+"hdf5plugin" package, all we have to do is "import" it. The package
+installs entry points to assist the h5py library to uncompress the
+data.
+
+Since we used "zlib" above, we comment the import for now.
+
+   # import hdf5plugin  # required for LZ4, Blosc, and other compression codecs
+
+   dataset = run.primary.read()
+   dataset
+
+/home/prjemian/.conda/envs/bluesky_2024_2/lib/python3.11/site-packages/databroker/intake_xarray_core/base.py:23: FutureWarning: The return type of `Dataset.dims` will be changed to return a set of dimension names in future, in order to be more consistent with `DataArray.dims`. To access a mapping from dimension names to lengths, please use `Dataset.sizes`.
+  'dims': dict(self._ds.dims),
+
+The image is recorded under the name ""adsimdet_image"".
+
+This "image" object has rank of 4 (1 timestamp and 5 frames of 1k x
+1k).
+
+   image = dataset["adsimdet_image"]
+   # image is an xarray.DataArray with 1 timestamp and 5 frames of 1k x 1k
+
+We just want the "image" frame (the last two indices).
+
+Select the first item of each of the first two indices (time, frame
+number)
+
+   frame = image[0][0]
+   # frame is an xarray.DataArray of 1k x 1k
+
+**Visualize the image**
+
+The "frame" is an xarray Dataset, which has a method to visualize the
+data as shown here:
+
+   frame.plot.pcolormesh()
+
+<matplotlib.collections.QuadMesh at 0x7f198ef93790>
+
+[image]
+
+   run.primary._resources
+
+[Resource({'path_semantics': 'posix',
+ 'resource_kwargs': {'frame_per_point': 5},
+ 'resource_path': 'tmp/docker_ioc/iocad/tmp/example/2024/08/25/ab959322-75db-41aa-b0a3_000000.h5',
+ 'root': '/',
+ 'run_start': '03540259-129f-4dcd-ac4d-6e2c2dc77527',
+ 'spec': 'AD_HDF5',
+ 'uid': 'd442acbf-c730-4f26-9d4a-97c89d5d3395'})]
+
+**Find the image file on local disk**
+
+Get the name of the image file on the bluesky (local) workstation from
+the "adsimdet" object.
+
+   from apstools.devices import AD_full_file_name_local
+
+   local_file_name = AD_full_file_name_local(adsimdet.hdf1)
+   print(f"{local_file_name.exists()=}\n{local_file_name=}")
+
+local_file_name.exists()=True
+local_file_name=PosixPath('/tmp/docker_ioc/iocad/tmp/example/2024/08/25/ab959322-75db-41aa-b0a3_000000.h5')
+
+Alternatively, we might get the name of the file from the run stream.
+
+   rsrc = run.primary._resources[0]
+   fname = pathlib.Path(f"{rsrc['root']}{rsrc['resource_path']}")
+   print(f"{fname.exists()=}\n{fname=}")
+
+   # confirm they are the same
+   print(f"{(local_file_name == fname)=}")
+
+fname.exists()=True
+fname=PosixPath('/tmp/docker_ioc/iocad/tmp/example/2024/08/25/ab959322-75db-41aa-b0a3_000000.h5')
+(local_file_name == fname)=True
+
+
+punx
+====
+
+Next, we demonstrate access to the HDF5 image file using the punx
+program.
+
+We run "punx" from within the notebook to read this HDF5 file and
+shows its tree structure. (Since we can’t easily pass a Python object
+to the notebook magic command "!" which executes a shell command,
+we’ll call a library routine from apstools to make this work.)
+
+   from apstools.utils import unix
+
+   for line in unix(f"punx tree {local_file_name}"):
+       print(line.decode().strip())
+
+!!! WARNING: this program is not ready for distribution.
+
+/tmp/docker_ioc/iocad/tmp/example/2024/08/25/ab959322-75db-41aa-b0a3_000000.h5 : NeXus data file
+  entry:NXentry
+    @NX_class = "NXentry"
+    data:NXdata
+      @NX_class = "NXdata"
+      data:NX_UINT8[5,1024,1024] = __array
+        __array = [
+            [
+                [11, 15, 17, '...', 8]
+                [18, 10, 9, '...', 9]
+                [14, 9, 18, '...', 13]
+                ...
+                [16, 13, 10, '...', 25]
+              ]
+            [
+                [7, 17, 15, '...', 12]
+                [18, 7, 12, '...', 10]
+                [11, 18, 12, '...', 20]
+                ...
+                [17, 13, 15, '...', 30]
+              ]
+            [
+                [7, 15, 10, '...', 19]
+                [11, 16, 12, '...', 14]
+                [15, 7, 12, '...', 19]
+                ...
+                [20, 14, 7, '...', 30]
+              ]
+            [
+                [13, 13, 8, '...', 8]
+                [20, 11, 12, '...', 15]
+                [17, 12, 20, '...', 14]
+                ...
+                [9, 10, 10, '...', 31]
+              ]
+            [
+                [8, 16, 10, '...', 10]
+                [10, 9, 12, '...', 18]
+                [7, 7, 16, '...', 16]
+                ...
+                [10, 16, 10, '...', 28]
+              ]
+          ]
+        @NDArrayDimBinning = [1 1]
+        @NDArrayDimOffset = [0 0]
+        @NDArrayDimReverse = [0 0]
+        @NDArrayNumDims = 2
+        @signal = 1
+    instrument:NXinstrument
+      @NX_class = "NXinstrument"
+      NDAttributes:NXcollection
+        @NX_class = "NXcollection"
+        @hostname = "arf.jemian.org"
+        NDArrayEpicsTSSec:NX_UINT32[5] = [1093452107, 1093452107, 1093452107, 1093452107, 1093452107]
+          @NDAttrDescription = "The NDArray EPICS timestamp seconds past epoch"
+          @NDAttrName = "NDArrayEpicsTSSec"
+          @NDAttrSource = "Driver"
+          @NDAttrSourceType = "NDAttrSourceDriver"
+        NDArrayEpicsTSnSec:NX_UINT32[5] = [492255441, 502449647, 517459894, 532556914, 547673991]
+          @NDAttrDescription = "The NDArray EPICS timestamp nanoseconds"
+          @NDAttrName = "NDArrayEpicsTSnSec"
+          @NDAttrSource = "Driver"
+          @NDAttrSourceType = "NDAttrSourceDriver"
+        NDArrayTimeStamp:NX_FLOAT64[5] = [1093452107.4373698, 1093452107.4922705, 1093452107.507369, 1093452107.5224965, 1093452107.537584]
+          @NDAttrDescription = "The timestamp of the NDArray as float64"
+          @NDAttrName = "NDArrayTimeStamp"
+          @NDAttrSource = "Driver"
+          @NDAttrSourceType = "NDAttrSourceDriver"
+        NDArrayUniqueId:NX_INT32[5] = [3221, 3222, 3223, 3224, 3225]
+          @NDAttrDescription = "The unique ID of the NDArray"
+          @NDAttrName = "NDArrayUniqueId"
+          @NDAttrSource = "Driver"
+          @NDAttrSourceType = "NDAttrSourceDriver"
+      detector:NXdetector
+        @NX_class = "NXdetector"
+        data:NX_UINT8[5,1024,1024] = __array
+          __array = [
+              [
+                  [11, 15, 17, '...', 8]
+                  [18, 10, 9, '...', 9]
+                  [14, 9, 18, '...', 13]
+                  ...
+                  [16, 13, 10, '...', 25]
+                ]
+              [
+                  [7, 17, 15, '...', 12]
+                  [18, 7, 12, '...', 10]
+                  [11, 18, 12, '...', 20]
+                  ...
+                  [17, 13, 15, '...', 30]
+                ]
+              [
+                  [7, 15, 10, '...', 19]
+                  [11, 16, 12, '...', 14]
+                  [15, 7, 12, '...', 19]
+                  ...
+                  [20, 14, 7, '...', 30]
+                ]
+              [
+                  [13, 13, 8, '...', 8]
+                  [20, 11, 12, '...', 15]
+                  [17, 12, 20, '...', 14]
+                  ...
+                  [9, 10, 10, '...', 31]
+                ]
+              [
+                  [8, 16, 10, '...', 10]
+                  [10, 9, 12, '...', 18]
+                  [7, 7, 16, '...', 16]
+                  ...
+                  [10, 16, 10, '...', 28]
+                ]
+            ]
+          @NDArrayDimBinning = [1 1]
+          @NDArrayDimOffset = [0 0]
+          @NDArrayDimReverse = [0 0]
+          @NDArrayNumDims = 2
+          @signal = 1
+        NDAttributes:NXcollection
+          @NX_class = "NXcollection"
+          ColorMode:NX_INT32[5] = [0, 0, 0, 0, 0]
+            @NDAttrDescription = "Color mode"
+            @NDAttrName = "ColorMode"
+            @NDAttrSource = "Driver"
+            @NDAttrSourceType = "NDAttrSourceDriver"
+      performance
+        timestamp:NX_FLOAT64[5,5] = __array
+          __array = [
+              [0.000262339, 0.195871589, 4428.629880857, 40.843085211301364, 0.0]
+              [0.040228383, 0.050511631, 0.040334145, 158.3793641508032, 198.3431159877072]
+              [0.039837534, 0.039862981, 0.080197126, 200.68744984224838, 199.50839634826815]
+              [0.039728159, 0.03975587, 0.119952996, 201.22814568012222, 200.0783706978023]
+              [0.039448289, 0.039478116, 0.159431112, 202.6439154289936, 200.71364740904522]
+            ]
+
+
+Recapitulation
+==============
+
+Let’s gather the above parts together as one would usually write code.
+First, all the imports, constants, and classes.
+
+   # matplotlib graphics, choices include: inline, notebook, auto
+   %matplotlib inline
+
+   from apstools.devices import ad_creator
+   from apstools.devices import AD_full_file_name_local
+   from apstools.devices import ensure_AD_plugin_primed
+   from apstools.devices import HDF5FileWriterPlugin
+   from apstools.devices import SimDetectorCam_V34
+   from bluesky.callbacks.best_effort import BestEffortCallback
+   import bluesky
+   import bluesky.plans as bp
+   import databroker
+   import hdf5plugin  # for LZ4, Blosc, or other compression codecs (not already in h5py)
+   import matplotlib.pyplot as plt
+   import pathlib
+
+   plt.ion()  # turn on matplotlib plots
+   IOC = "ad:"
+
+   AD_IOC_MOUNT_PATH = pathlib.Path("/tmp")
+   BLUESKY_MOUNT_PATH = pathlib.Path("/tmp/docker_ioc/iocad/tmp")
+   IMAGE_DIR = "example/%Y/%m/%d"
+
+   # MUST end with a `/`, pathlib will NOT provide it
+   WRITE_PATH_TEMPLATE = f"{AD_IOC_MOUNT_PATH / IMAGE_DIR}/"
+   READ_PATH_TEMPLATE = f"{BLUESKY_MOUNT_PATH / IMAGE_DIR}/"
+
+Next, create and configure the Python object for the detector:
+
+   plugins = []
+   plugins.append({"cam": {"class": SimDetectorCam_V34}})
+   plugins.append(
+       {
+           "hdf1": {
+               "class": HDF5FileWriterPlugin,
+               "write_path_template": WRITE_PATH_TEMPLATE,
+               "read_path_template": READ_PATH_TEMPLATE,
+           }
+       }
+   )
+   plugins.append("image")
+
+   adsimdet = ad_creator(IOC, name="adsimdet", plugins=plugins)
+   adsimdet.wait_for_connection(timeout=15)
+   adsimdet.missing_plugins()  # confirm all plugins are defined
+
+   adsimdet.read_attrs.append("hdf1")  # include `hdf1` plugin with 'adsimdet.read()'
+   adsimdet.hdf1.create_directory.put(-5)  # IOC may create up to 5 new subdirectories, as needed
+
+   # override default settings from ophyd
+   adsimdet.cam.stage_sigs["wait_for_plugins"] = "Yes"
+   adsimdet.hdf1.stage_sigs["blocking_callbacks"] = "No"
+   adsimdet.image.stage_sigs["blocking_callbacks"] = "No"
+
+   # apply some of our own customizations
+   NUM_FRAMES = 5
+   adsimdet.cam.stage_sigs["acquire_period"] = 0.002
+   adsimdet.cam.stage_sigs["acquire_time"] = 0.001
+   adsimdet.cam.stage_sigs["num_images"] = NUM_FRAMES
+   adsimdet.hdf1.stage_sigs["num_capture"] = 0  # capture ALL frames received
+   adsimdet.hdf1.stage_sigs["compression"] = "zlib"  # LZ4
+   # adsimdet.hdf1.stage_sigs["queue_size"] = 20
+
+   # this step is needed for ophyd
+   ensure_AD_plugin_primed(adsimdet.hdf1, True)
+
+Prepare for data acquisition.
+
+   cat = databroker.temp().v2  # or use your own catalog: databroker.catalog["CATALOG_NAME"]
+   RE = bluesky.RunEngine({})
+   RE.subscribe(cat.v1.insert)
+   RE.subscribe(BestEffortCallback())
+   RE.preprocessors.append(bluesky.SupplementalData())
+
+Take an image.
+
+   uids = RE(
+       bp.count(
+           [adsimdet],
+           md=dict(
+               title="Area Detector with default HDF5 File Name",
+               purpose="image",
+               image_file_name_style="ophyd(uid)",
+           )
+       )
+   )
+
+   # confirm the plugin captured the expected number of frames
+   assert adsimdet.hdf1.num_captured.get() == NUM_FRAMES
+
+   # Show the image file name on the bluesky (local) workstation
+   # Use information from the 'adsimdet' object
+   local_file_name = AD_full_file_name_local(adsimdet.hdf1)
+   print(f"{local_file_name.exists()=} {local_file_name=}")
+
+Transient Scan ID: 1     Time: 2024-08-25 11:41:49
+Persistent Unique Scan ID: '12211035-6f0f-4937-a20e-68c1c571a332'
+New stream: 'primary'
++-----------+------------+
+|   seq_num |       time |
++-----------+------------+
+|         1 | 11:41:49.8 |
++-----------+------------+
+generator count ['12211035'] (scan num: 1)
+
+
+
+local_file_name.exists()=True local_file_name=PosixPath('/tmp/docker_ioc/iocad/tmp/example/2024/08/25/ac152816-7131-4cfa-a0e4_000000.h5')
+
+View the image using databroker.
+
+   run = cat.v2[uids[0]]
+   dataset = run.primary.read()
+   dataset["adsimdet_image"][0][0].plot.pcolormesh()
+
+   # Show the image file name on the bluesky (local) workstation
+   # Use information from the databroker run
+   _r = run.primary._resources[0]
+   fname = pathlib.Path(f"{_r['root']}{_r['resource_path']}")
+   print(f"{fname.exists()=}\n{fname=}")
+
+   # confirm the name above () is the same
+   print(f"{(local_file_name == fname)=}")
+
+fname.exists()=True
+fname=PosixPath('/tmp/docker_ioc/iocad/tmp/example/2024/08/25/ac152816-7131-4cfa-a0e4_000000.h5')
+(local_file_name == fname)=True
+
+[image]

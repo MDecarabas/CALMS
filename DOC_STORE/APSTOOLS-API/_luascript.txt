@@ -1,0 +1,121 @@
+synApps luascript record
+************************
+
+see the synApps "luascript" module suppport: https://epics-
+lua.readthedocs.io/en/latest/luascriptRecord.html
+
+Ophyd support for the EPICS synApps luascript record
+
+EXAMPLES:
+
+   import apstools.synApps
+   scripts = apstools.synApps.UserScriptsDevice("xxx:", name="scripts")
+   scripts.reset()
+
++------------+--------------------------------------------------------------------------------------------+
+| "UserScri  | EPICS synApps XXX IOC setup of user lua scripts: "$(P):userScript$(N)"                     |
+| ptsDevice  |                                                                                            |
+| "(*args,   |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "Luascrip  | EPICS synApps luascript record: used as "$(P):userScript$(N)"                              |
+| tRecord"(  |                                                                                            |
+| *args,     |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "Luascrip  | number input of a synApps luascript record: A-J                                            |
+| tRecordNu  |                                                                                            |
+| mberInput  |                                                                                            |
+| "(*args,   |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "Luascrip  | string input of a synApps luascript record: AA-JJ                                          |
+| tRecordSt  |                                                                                            |
+| ringInput  |                                                                                            |
+| "(*args,   |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+see:
+   https://epics-lua.readthedocs.io/en/latest/luascriptRecord.html
+
+class apstools.synApps.luascript.LuascriptRecord(*args: Any, **kwargs: Any)
+
+   EPICS synApps luascript record: used as "$(P):userScript$(N)"
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.luascript.LuascriptRecordNumberInput(*args: Any, **kwargs: Any)
+
+   number input of a synApps luascript record: A-J
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.luascript.LuascriptRecordStringInput(*args: Any, **kwargs: Any)
+
+   string input of a synApps luascript record: AA-JJ
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.luascript.UserScriptsDevice(*args: Any, **kwargs: Any)
+
+   EPICS synApps XXX IOC setup of user lua scripts:
+   "$(P):userScript$(N)"
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   reset()
+
+      set all fields to default values
+
+   script0
+
+      alias of "LuascriptRecord"
+
+   script1
+
+      alias of "LuascriptRecord"
+
+   script2
+
+      alias of "LuascriptRecord"
+
+   script3
+
+      alias of "LuascriptRecord"
+
+   script4
+
+      alias of "LuascriptRecord"
+
+   script5
+
+      alias of "LuascriptRecord"
+
+   script6
+
+      alias of "LuascriptRecord"
+
+   script7
+
+      alias of "LuascriptRecord"
+
+   script8
+
+      alias of "LuascriptRecord"
+
+   script9
+
+      alias of "LuascriptRecord"

@@ -1,0 +1,35 @@
+synApps save data
+*****************
+
+The synApps SaveData support is in the synApps "sscan" module:
+https://github.com/epics-modules/sscan
+
+Ophyd support for the EPICS synApps saveData support
+
+see:  https://epics.anl.gov/bcda/synApps/sscan/sscanRecord.html
+
+EXAMPLE:
+
+   from apstools.synApps import SaveData
+   save_data = SaveData("xxx:saveData_", name="save_data")
+
+Public Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "SaveData  | EPICS synApps saveData support.                                                            |
+| "(*args,   |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+class apstools.synApps.save_data.SaveData(*args: Any, **kwargs: Any)
+
+   EPICS synApps saveData support.
+
+   usage:
+
+      from apstools.synApps import SaveData
+      save_data = SaveData("xxx:saveData_", name="save_data")
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+

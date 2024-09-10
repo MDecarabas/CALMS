@@ -1,0 +1,19 @@
+synApps busy record
+*******************
+
+see the synApps "busy" module suppport: https://github.com/epics-
+modules/busy
+
+Ophyd support for the EPICS busy record
+
+Public Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "BusyReco  | EPICS synApps busy record                                                                  |
+| rd"(*args, |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+class apstools.synApps.busy.BusyRecord(*args: Any, **kwargs: Any)
+
+   EPICS synApps busy record

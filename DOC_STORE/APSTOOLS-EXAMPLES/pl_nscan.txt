@@ -1,0 +1,73 @@
+The "nscan()" plan – scan multiple axes together
+************************************************
+
+In this example, we demonstrate the "apstools.plans.nscan()" plan. The
+"nscan()" plan is used to scan two or more axes together, each in
+equally spaced steps, such as a \theta - 2\theta powder diffractometer
+scan.
+
+Here, we scan two motors together, each in equally spaced steps. We
+use an swait record (part of the *userCalc* support from synApps) as a
+detector. We configure the "swait" record with a calculation (from
+setup_random_number_swait() in "apstools.synApps") that computes a
+noisy (random number) signal.
+
+
+Setup
+=====
+
+For this demo, we do not need the databroker since we do not plan to
+review any of this data after collection. We’ll display the data
+during the scan using the *LiveTable()* code.
+
+   from apstools.synApps import UserCalcN, setup_random_number_swait
+   from apstools.plans import nscan
+   from bluesky import RunEngine
+   from bluesky.callbacks import LiveTable
+   from ophyd import EpicsMotor
+
+   RE = RunEngine({})
+
+Set the prefix for the EPICS IOC that provides the PVs we’ll use here.
+
+   IOC = "gp:"
+
+Connect to our motors and create the *noisy* detector.
+
+   m1 = EpicsMotor(f"{IOC}m1", name="m1")
+   m2 = EpicsMotor(f"{IOC}m2", name="m2")
+   noisy = UserCalcN(f"{IOC}userCalc1", name="noisy")
+
+   m1.wait_for_connection()
+   m2.wait_for_connection()
+   noisy.wait_for_connection()
+
+   # configure the *detector* as a random number generator using a calculation.
+   setup_random_number_swait(noisy)
+
+
+Scan
+====
+
+Measure the noisy detector while step scanning both the m1 & m2 motors
+together. We’ll move m2 twice as far as m1, like a \theta-2\theta scan
+on a diffractometer.
+
+   RE(
+       nscan([noisy, ], m1, 2, 0, m2, 4, 0, num=6),
+       LiveTable(["m1", "m2", "noisy_val"])
+       )
+
++-----------+------------+------------+------------+
+|   seq_num |       time |         m1 |         m2 |
++-----------+------------+------------+------------+
+|         1 | 00:22:27.5 |    2.00000 |    4.00000 |
+|         2 | 00:22:28.6 |    1.60000 |    3.20000 |
+|         3 | 00:22:29.7 |    1.20000 |    2.40000 |
+|         4 | 00:22:30.8 |    0.80000 |    1.60000 |
+|         5 | 00:22:31.9 |    0.40000 |    0.80000 |
+|         6 | 00:22:33.0 |    0.00000 |    0.00000 |
++-----------+------------+------------+------------+
+generator nscan ['fcb9a1ad'] (scan num: 1)
+
+('fcb9a1ad-1901-4955-96df-f2079f4edd1c',)

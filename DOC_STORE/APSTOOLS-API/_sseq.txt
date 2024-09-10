@@ -1,0 +1,137 @@
+synApps sseq record
+*******************
+
+The "sseq" (String Sequence) record is part of the "calc" module:
+   see:
+      https://htmlpreview.github.io/?https://raw.githubusercontent.com
+      /epics-modules/calc/R3-6-1/documentation/sseqRecord.html
+
+Ophyd support for the EPICS sseq (string sequence) record
+
+Public Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "EditStri  | EPICS synApps sseq support to quickly re-arrange steps.                                    |
+| ngSequenc  |                                                                                            |
+| e"(*args,  |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "SseqReco  | EPICS synApps sseq record support in ophyd                                                 |
+| rd"(*args, |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "UserStri  | EPICS synApps XXX IOC setup of userStringSeqs: "$(P):userStringSeq$(N)"                    |
+| ngSequenc  |                                                                                            |
+| eDevice"(  |                                                                                            |
+| *args,     |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "UserStri  | Single instance of the userStringSeqN database.                                            |
+| ngSequenc  |                                                                                            |
+| eN"(*args, |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+class apstools.synApps.sseq.EditStringSequence(*args: Any, **kwargs: Any)
+
+   EPICS synApps sseq support to quickly re-arrange steps.
+
+   See the "editSseq_more" GUI screen for assistance.
+
+class apstools.synApps.sseq.SseqRecord(*args: Any, **kwargs: Any)
+
+   EPICS synApps sseq record support in ophyd
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "abort"()  | .ABORT is a push button.                                                                   |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   See:
+      https://htmlpreview.github.io/?https://raw.githubusercontent.com
+      /epics-modules/calc/R3-6-1/documentation/sseqRecord.html
+
+   abort()
+
+      .ABORT is a push button.  Send a 1 to the PV to "push" it.
+
+      Push this button without a timeout from the .put() method.
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.sseq.UserStringSequenceDevice(*args: Any, **kwargs: Any)
+
+   EPICS synApps XXX IOC setup of userStringSeqs:
+   "$(P):userStringSeq$(N)"
+
+   Note: This will connect more than 1,000 EpicsSignal objects!
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   reset()
+
+      set all fields to default values
+
+   sseq1
+
+      alias of "UserStringSequenceN"
+
+   sseq10
+
+      alias of "UserStringSequenceN"
+
+   sseq2
+
+      alias of "UserStringSequenceN"
+
+   sseq3
+
+      alias of "UserStringSequenceN"
+
+   sseq4
+
+      alias of "UserStringSequenceN"
+
+   sseq5
+
+      alias of "UserStringSequenceN"
+
+   sseq6
+
+      alias of "UserStringSequenceN"
+
+   sseq7
+
+      alias of "UserStringSequenceN"
+
+   sseq8
+
+      alias of "UserStringSequenceN"
+
+   sseq9
+
+      alias of "UserStringSequenceN"
+
+class apstools.synApps.sseq.UserStringSequenceN(*args: Any, **kwargs: Any)
+
+   Single instance of the userStringSeqN database.
+
+class apstools.synApps.sseq.sseqRecordStep(*args: Any, **kwargs: Any)
+
+   EPICS synApps sseq single step of an sseq record.
+
+   Step of a synApps sseq record: 1..10  (note: for 10, the PVs use
+   "A")
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   reset()
+
+      set all fields to default values

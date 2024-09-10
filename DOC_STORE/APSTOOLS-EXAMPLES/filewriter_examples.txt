@@ -1,0 +1,22 @@
+File Writer Examples
+********************
+
+* Callback
+
+* Export
+
+* Output scan(s) to a SPEC data file.
+
+  * Setup
+
+  * get the most recent scan, by steps
+
+  * Support function: "specfile_example()"
+
+  * Write the run as SPEC data
+
+  * a specific scan
+
+  * specify a list of scans by UID
+
+  * Find specific plans within a range of dates

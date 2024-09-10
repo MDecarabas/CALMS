@@ -1,0 +1,1621 @@
+File Writers
+************
+
+Write data files during data acquisition.  The file writer callbacks
+are:
+
++------------+--------------------------------------------------------------------------------------------+
+| "FileWrit  | Base class for filewriter callbacks.                                                       |
+| erCallbac  |                                                                                            |
+| kBase"(*a  |                                                                                            |
+| rgs,       |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "NXWriter  | Customize "NXWriter" with APS-specific content.                                            |
+| APS"(*arg  |                                                                                            |
+| s,         |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "NXWriter  | General class for writing HDF5/NeXus file (using only NeXus base classes).                 |
+| "(*args,   |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "SpecWrit  | **Deprecated**: Use "SpecWriterCallback2".                                                 |
+| erCallbac  |                                                                                            |
+| k"([filen  |                                                                                            |
+| ame, auto  |                                                                                            |
+| _write,    |                                                                                            |
+| ...])      |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "SpecWrit  | Write SPEC data file as data is collected, line-by-line.                                   |
+| erCallbac  |                                                                                            |
+| k2"(*args, |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+
+Overview
+========
+
+Each filewriter can be used as a callback to the Bluesky RunEngine for
+live data acquisition or later as a handler for a document set from
+the databroker.  Methods are provided to handle each document type.
+The callback method, "receiver(document_type, document)", receives the
+set of documents, one-by-one, and sends them to the appropriate
+handler.  Once the "stop" document is received, the "writer()" method
+is called to write the output file.
+
+
+Examples
+--------
+
+Write SPEC file automatically from data acquisition:
+
+   specwriter = apstools.callbacks.SpecWriterCallback()
+   RE.subscribe(specwriter.receiver)
+
+Write NeXus file automatically from data acquisition:
+
+   nxwriter = apstools.callbacks.NXWriter()
+   RE.subscribe(nxwriter.receiver)
+
+Write APS-specific NeXus file automatically from data acquisition:
+
+   nxwriteraps = apstools.callbacks.NXWriterAPS()
+   RE.subscribe(nxwriteraps.receiver)
+
+
+Programmer's Note
+-----------------
+
+Subclassing from "object" (or no superclass) avoids the need to import
+"bluesky.callbacks.core.CallbackBase". One less import when only
+accessing the Databroker. The *only* advantage to subclassing from
+"CallbackBase" seems to be a simpler setup call to "RE.subscribe()".
+
++--------------+---------------------------------------+
+| superclass   | subscription code                     |
+|==============|=======================================|
+| object       | "RE.subscribe(specwriter.receiver)"   |
++--------------+---------------------------------------+
+| CallbackBase | "RE.subscribe(specwriter)"            |
++--------------+---------------------------------------+
+
+
+HDF5/NeXus File Writers
+=======================
+
+
+FileWriterCallbackBase
+----------------------
+
+Base class for filewriter callbacks.
+
+Applications should subclass and rewrite the "writer()" method.
+
+The local buffers are cleared when a start document is received.
+Content is collected here from each document until the stop document.
+The content is written once the stop document is received.
+
+
+Output File Name and Path
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The output file will be written to the file named in "self.file_name".
+(Include the output directory if different from the current working
+directory.)
+
+When "self.file_name" is "None" (the default), the "make_file_name()"
+method will construct the file name using a combination of the date
+and time (from the "start" document), the "start" document "uid", and
+the "scan_id". The default file extension (given in
+"NEXUS_FILE_EXTENSION") is used in "make_file_name()". The directory
+will be "self.file_path" (or the current working directory if
+"self.file_path" is "None" which is the default).
+
+Either specify "self.file_name" or override "make_file_name()" in a
+subclass to change the procedure for default output file names.
+
+
+Metadata
+~~~~~~~~
+
+Almost all metadata keys (additional attributes added to the run's
+"start" document) are completely optional.  Certain keys are specified
+by the RunEngine, some keys are specified by the plan (or plan support
+methods), and other keys are supplied by the user or the instrument
+team.
+
+These are the keys used by this callback to help guide how information
+is stored in a NeXus HDF5 file structure.
+
++-------------+---------------+------------------------------------------------------+
+| key         | creator       | how is it used                                       |
+|=============|===============|======================================================|
+| detectors   | inconsistent  | name(s) of the signals used as detectors             |
++-------------+---------------+------------------------------------------------------+
+| motors      | inconsistent  | synonym for "positioners"                            |
++-------------+---------------+------------------------------------------------------+
+| plan_args   | inconsistent  | parameters (arguments) given                         |
++-------------+---------------+------------------------------------------------------+
+| plan_name   | inconsistent  | name of the plan used to collect data                |
++-------------+---------------+------------------------------------------------------+
+| positioners | inconsistent  | name(s) of the signals used as positioners           |
++-------------+---------------+------------------------------------------------------+
+| scan_id     | RunEngine     | incrementing number of the run, user can reset       |
++-------------+---------------+------------------------------------------------------+
+| uid         | RunEngine     | unique identifier of the run                         |
++-------------+---------------+------------------------------------------------------+
+| versions    | instrument    | documents the software versions used to collect data |
++-------------+---------------+------------------------------------------------------+
+
+For more information about Bluesky *events* and document types, see
+https://blueskyproject.io/event-model/data-model.html.
+
+
+NXWriter
+--------
+
+General class for writing HDF5/NeXus file (using only NeXus base
+classes).
+
+One scan is written to one HDF5/NeXus file.
+
+
+Output File Name and Path
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The output file will be written to the file named in "self.file_name".
+(Include the output directory if different from the current working
+directory.)
+
+When "self.file_name" is "None" (the default), the "make_file_name()"
+method will construct the file name using a combination of the date
+and time (from the *start* document), the "start" document "uid", and
+the "scan_id". The default file extension (given in
+"NEXUS_FILE_EXTENSION") is used in "make_file_name()". The directory
+will be "self.file_path" (or the current working directory if
+"self.file_path" is "None" which is the default).
+
+Either specify "self.file_name" of override "make_file_name()" in a
+subclass to change the procedure for default output file names.
+
+
+Metadata
+~~~~~~~~
+
+Almost all metadata keys (additional attributes added to the run's
+"start" document) are completely optional.  Certain keys are specified
+by the RunEngine, some keys are specified by the plan (or plan support
+methods), and other keys are supplied by the user or the instrument
+team.
+
+These are the keys used by this callback to help guide how information
+is stored in a NeXus HDF5 file structure.
+
++-------------+---------------+------------------------------------------------------+
+| key         | creator       | how is it used                                       |
+|=============|===============|======================================================|
+| detectors   | inconsistent  | name(s) of the signals used as plottable values      |
++-------------+---------------+------------------------------------------------------+
+| motors      | inconsistent  | synonym for "positioners"                            |
++-------------+---------------+------------------------------------------------------+
+| plan_args   | inconsistent  | parameters (arguments) given                         |
++-------------+---------------+------------------------------------------------------+
+| plan_name   | inconsistent  | name of the plan used to collect data                |
++-------------+---------------+------------------------------------------------------+
+| positioners | inconsistent  | name(s) of the positioners used for plotting         |
++-------------+---------------+------------------------------------------------------+
+| scan_id     | RunEngine     | incrementing number of the run, user can reset       |
++-------------+---------------+------------------------------------------------------+
+| subtitle    | user          | -tba-                                                |
++-------------+---------------+------------------------------------------------------+
+| title       | user          | /entry/title                                         |
++-------------+---------------+------------------------------------------------------+
+| uid         | RunEngine     | unique identifier of the run                         |
++-------------+---------------+------------------------------------------------------+
+| versions    | instrument    | documents the software versions used to collect data |
++-------------+---------------+------------------------------------------------------+
+
+Notes:
+
+1. "detectors[0]" will be used as the "/entry/data@signal" attribute
+
+2. the *complete* list in "positioners" will be used as the
+   "/entry/data@axes" attribute
+
+
+Templates
+~~~~~~~~~
+
+Use templates to build NeXus base classes or application definitions
+with data already collected by the nxwriter and saved in other places
+in the NeXus/HDF5 file (such as */entry/instrument/bluesky*).
+Templates are used to:
+
+* make links from existing fields or groups to new locations
+
+* create new groups as directed
+
+* create constants for attributes or fields
+
+A template is a "[source, target]" list, where source is a string and
+target varies depending on the type of template.  A list of templates
+is stored as a JSON string in the run's metadata under a pre-arranged
+key.
+
+For reasons of expediency, always use absolute HDF5 addresses.
+Relative addresses are not supported now.
+
+A *link* template makes a pointer from an existing field or group to
+another location. In a link template, the source is an existing HDF5
+address.  The target is a NeXus class path.  If the path contains a
+group which is not yet defined, the addtional component names the
+NeXus class to be used. See the examples below.
+
+A *constant* template defines a new NeXus field.  The source string,
+which can be a class path (see above), ends with an "=".  The target
+can be a text, a number, or an array.  Anything that can be converted
+into a JSON document and then written to an HDF5 dataset.
+
+An *attribute* template adds a new attribute to a field or group.  Use
+the *@* symbol in the source string as shown in the examples below.
+The target is the value of the attribute.
+
+EXAMPLE:
+
+   template_examples = [
+       # *constant* template
+       # define a constant array in a new NXdata group
+       ["/entry/example:NXdata/array=", [1, 2, 3]],
+
+       # *attribute* template
+       # set the example group "signal" attribute
+       #   (new array is the default plottable data)
+       ["/entry/example/@signal", "array"],
+
+       # *link* template
+       # link the new array into a new NXnote group as field "x"
+       ["/entry/example/array", "/entry/example/note:NXnote/x"],
+   ]
+
+   md = {
+       "title": "NeXus/HDF5 template support example",
+
+       # encode the Python dictionary as a JSON string
+       nxwriter.template_key: json.dumps(template_examples),
+   }
+
+The templates in this example add this structure to the "/entry" group
+in the HDF5 file:
+
+   /entry:NXentry
+       @NX_class = "NXentry"
+       ...
+       example:NXdata
+           @NX_class = "NXdata"
+           @signal = "array"
+           @target = "/entry/example"
+           array:NX_INT64[3] = [1, 2, 3]
+               @target = "/entry/example/array"
+           note:NXnote
+               @NX_class = "NXnote"
+               @target = "/entry/example/note"
+               x --> /entry/example/array
+
+
+NXWriterAPS
+-----------
+
+Customize "NXWriter" with APS-specific content.
+
+* Adds "/entry/instrument/undulator" group if metadata exists.
+
+* Adds APS information to "/entry/instrument/source" group.
+
+APS instruments should subclass "NXWriterAPS" to make customizations
+for specific plans or other considerations.
+
+
+HDF5/NeXus File Structures
+==========================
+
+Bluesky stores a wealth of information about a measurement in a *run*.
+Raw data from the Bluesky *run* is stored in the HDF5/NeXus structure
+under the "/entry/instrument/bluesky" group as shown in this example:
+
+     bluesky:NXnote
+       @NX_class = NXnote
+       @target = /entry/instrument/bluesky
+       plan_name --> /entry/instrument/bluesky/metadata/plan_name
+       uid --> /entry/instrument/bluesky/metadata/run_start_uid
+
+The NeXus structure is built using links to the raw data in
+"/entry/instrument/bluesky".
+
+
+Metadata
+--------
+
+Metadata from the "start" document is stored in the "metadata"
+subgroup as shown in this example:
+
+     metadata:NXnote
+       @NX_class = NXnote
+       @target = /entry/instrument/bluesky/metadata
+       beamline_id:NX_CHAR = b'APS USAXS 9-ID-C'
+         @target = /entry/instrument/bluesky/metadata/beamline_id
+       datetime:NX_CHAR = b'2019-05-02 17:45:33.904824'
+         @target = /entry/instrument/bluesky/metadata/datetime
+       detectors:NX_CHAR = b'- I0_USAXS\n'
+         @target = /entry/instrument/bluesky/metadata/detectors
+         @text_format = yaml
+       hints:NX_CHAR = b'dimensions:\n- - - m_stage_r\n  - primary\n'
+         @target = /entry/instrument/bluesky/metadata/hints
+         @text_format = yaml
+       login_id:NX_CHAR = b'usaxs@usaxscontrol.xray.aps.anl.gov'
+         @target = /entry/instrument/bluesky/metadata/login_id
+       motors:NX_CHAR = b'- m_stage_r\n'
+         @target = /entry/instrument/bluesky/metadata/motors
+         @text_format = yaml
+       pid:NX_INT64[] = 
+         @target = /entry/instrument/bluesky/metadata/pid
+       plan_name:NX_CHAR = b'tune_mr'
+         @target = /entry/instrument/bluesky/metadata/plan_name
+       plan_type:NX_CHAR = b'generator'
+         @target = /entry/instrument/bluesky/metadata/plan_type
+       proposal_id:NX_CHAR = b'testing Bluesky installation'
+         @target = /entry/instrument/bluesky/metadata/proposal_id
+       purpose:NX_CHAR = b'tuner'
+         @target = /entry/instrument/bluesky/metadata/purpose
+       run_start_uid:NX_CHAR = 2ffe4d87-9f0c-464a-9d14-213ec71afaf7
+         @long_name = bluesky run uid
+         @target = /entry/instrument/bluesky/metadata/run_start_uid
+       tune_md:NX_CHAR = b"initial_position: 8.824977\ntime_iso8601: '2019-05-02 17:45:33.923544'\nwidth: -0.004\n"
+         @target = /entry/instrument/bluesky/metadata/tune_md
+         @text_format = yaml
+       tune_parameters:NX_CHAR = b'initial_position: 8.824977\nnum: 31\npeak_choice: com\nwidth: -0.004\nx_axis: m_stage_r\ny_axis: I0_USAXS\n'
+         @target = /entry/instrument/bluesky/metadata/tune_parameters
+         @text_format = yaml
+       uid --> /entry/instrument/bluesky/run_start_uid
+
+Note that complex structures (lists and dictionaries) are written as
+YAML.  YAML is easily converted back into the python structure using
+"yaml.load(yaml_text)" where "yaml_text" is the YAML text from the
+HDF5 file.
+
+
+Streams
+-------
+
+Data from each ophyd signal in a *document stream* is stored as
+datasets within a "NXdata" [1] subgroup of that stream.  Bluesky
+collects value(s) and timestamp(s) which are stored in the datasets
+"value" and "EPOCH", respectively. Since "EPOCH" is the absolute
+number of seconds from some time in the deep past, an additional
+"time" dataset repeats this data as time *relative* to the first time.
+(This makes it much easier for some visualization programs to display
+value v. time plots.)  Additional information, as available (such as
+units), is added as NeXus attributes.  The "@target" attribute is
+automatically added to simplify linking any item into the NeXus tree
+structure.
+
+[1] "NXdata" is used since some visualization tools recognize it to
+    make a plot.
+
+For example, the main data in a run is usually stored in the "primary"
+stream. Here, we show the tree structure for one signal ("I0_USAXS")
+from the primary stream:
+
+     primary:NXnote
+       @NX_class = NXnote
+       @target = /entry/instrument/bluesky/streams/primary
+       @uid = 90489e9b-d66e-4753-8c4f-849e7a809aeb
+       I0_USAXS:NXdata
+         @NX_class = NXdata
+         @axes = time
+         @signal = value
+         @signal_type = detector
+         @target = /entry/instrument/bluesky/streams/primary/I0_USAXS
+         EPOCH:NX_FLOAT64[31] = [1556837134.972796, 1556837135.589462, 1556837135.989462, '...', 1556837147.656129]
+           @long_name = epoch time (s)
+           @target = /entry/instrument/bluesky/streams/primary/I0_USAXS/EPOCH
+           @units = s
+         time:NX_FLOAT64[31] = [0.0, 0.6166660785675049, 1.0166659355163574, '...', 12.683332920074463]
+           @long_name = time since first data (s)
+           @start_time = 1556837134.972796
+           @start_time_iso = 2019-05-02T17:45:34.972796
+           @target = /entry/instrument/bluesky/streams/primary/I0_USAXS/time
+           @units = s
+         value:NX_FLOAT64[31] = [127.0, 126.0, 127.0, '...', 127.0]
+           @long_name = I0_USAXS
+           @lower_ctrl_limit = 0.0
+           @precision = 0
+           @signal_type = detector
+           @source = PV:9idcLAX:vsc:c0.S2
+           @target = /entry/instrument/bluesky/streams/primary/I0_USAXS/value
+           @units = 
+           @upper_ctrl_limit = 0.0
+
+
+Baseline
+--------
+
+In Bluesky, *baseline* streams record the value (and timestamp) of a
+signal at the start and end of the run.  Similar to the handling for
+streams (above), a subgroup is created for each baseline stream. The
+datasets include "value", "EPOCH", "time" (as above) and "value_start"
+and "value_end".  Here's an example:
+
+     baseline:NXnote
+       @NX_class = NXnote
+       @target = /entry/instrument/bluesky/streams/baseline
+       @uid = f5fce6ac-f3fa-4c34-b11d-9e33c263cd20
+       aps_current:NXdata
+         @NX_class = NXdata
+         @axes = time
+         @signal = value
+         @target = /entry/instrument/bluesky/streams/baseline/aps_current
+         EPOCH:NX_FLOAT64[2] = [1556837133.753769, 1556837147.753723]
+           @long_name = epoch time (s)
+           @target = /entry/instrument/bluesky/streams/baseline/aps_current/EPOCH
+           @units = s
+         time:NX_FLOAT64[2] = [0.0, 13.999953985214233]
+           @long_name = time since first data (s)
+           @start_time = 1556837133.753769
+           @start_time_iso = 2019-05-02T17:45:33.753769
+           @target = /entry/instrument/bluesky/streams/baseline/aps_current/time
+           @units = s
+         value:NX_FLOAT64[2] = [0.004512578244000032, 0.003944485484000011]
+           @long_name = aps_current
+           @lower_ctrl_limit = 0.0
+           @precision = 1
+           @source = PV:S:SRcurrentAI
+           @target = /entry/instrument/bluesky/streams/baseline/aps_current/value
+           @units = mA
+           @upper_ctrl_limit = 310.0
+         value_end:NX_FLOAT64[] = 
+           @long_name = aps_current
+           @lower_ctrl_limit = 0.0
+           @precision = 1
+           @source = PV:S:SRcurrentAI
+           @target = /entry/instrument/bluesky/streams/baseline/aps_current/value_end
+           @units = mA
+           @upper_ctrl_limit = 310.0
+         value_start:NX_FLOAT64[] = 
+           @long_name = aps_current
+           @lower_ctrl_limit = 0.0
+           @precision = 1
+           @source = PV:S:SRcurrentAI
+           @target = /entry/instrument/bluesky/streams/baseline/aps_current/value_start
+           @units = mA
+           @upper_ctrl_limit = 310.0
+
+
+Full Structure
+--------------
+
+The full structure of the example HDF5/NeXus file (omitting the
+attributes and array data for brevity) is shown next.  You can see
+that most of the NeXus structure is completed by making links to data
+from either "/entry/instrument/bluesky/metadata" or
+"/entry/instrument/bluesky/streams":
+
+   20190502-174533-S00108-2ffe4d8.hdf : NeXus data file
+     entry:NXentry
+       duration:NX_FLOAT64[] = [ ... ]
+       end_time:NX_CHAR = 2019-05-02T17:45:48.078618
+       entry_identifier --> /entry/instrument/bluesky/uid
+       plan_name --> /entry/instrument/bluesky/metadata/plan_name
+       program_name:NX_CHAR = bluesky
+       start_time:NX_CHAR = 2019-05-02T17:45:33.937294
+       title:NX_CHAR = tune_mr-S0108-2ffe4d8
+       contact:NXuser
+         affiliation --> /entry/instrument/bluesky/streams/baseline/bss_user_info_institution/value_start
+         email --> /entry/instrument/bluesky/streams/baseline/bss_user_info_email/value_start
+         facility_user_id --> /entry/instrument/bluesky/streams/baseline/bss_user_info_badge/value_start
+         name --> /entry/instrument/bluesky/streams/baseline/bss_user_info_contact/value_start
+         role:NX_CHAR = contact
+       data:NXdata
+         EPOCH --> /entry/instrument/bluesky/streams/primary/scaler0_time/time
+         I0_USAXS --> /entry/instrument/bluesky/streams/primary/I0_USAXS/value
+         m_stage_r --> /entry/instrument/bluesky/streams/primary/m_stage_r/value
+         m_stage_r_soft_limit_hi --> /entry/instrument/bluesky/streams/primary/m_stage_r_soft_limit_hi/value
+         m_stage_r_soft_limit_lo --> /entry/instrument/bluesky/streams/primary/m_stage_r_soft_limit_lo/value
+         m_stage_r_user_setpoint --> /entry/instrument/bluesky/streams/primary/m_stage_r_user_setpoint/value
+         scaler0_display_rate --> /entry/instrument/bluesky/streams/primary/scaler0_display_rate/value
+         scaler0_time --> /entry/instrument/bluesky/streams/primary/scaler0_time/value
+       instrument:NXinstrument
+         bluesky:NXnote
+           plan_name --> /entry/instrument/bluesky/metadata/plan_name
+           uid --> /entry/instrument/bluesky/metadata/run_start_uid
+           metadata:NXnote
+             APSTOOLS_VERSION:NX_CHAR = b'1.1.0'
+             BLUESKY_VERSION:NX_CHAR = b'1.5.2'
+             EPICS_CA_MAX_ARRAY_BYTES:NX_CHAR = b'1280000'
+             EPICS_HOST_ARCH:NX_CHAR = b'linux-x86_64'
+             OPHYD_VERSION:NX_CHAR = b'1.3.3'
+             beamline_id:NX_CHAR = b'APS USAXS 9-ID-C'
+             datetime:NX_CHAR = b'2019-05-02 17:45:33.904824'
+             detectors:NX_CHAR = b'- I0_USAXS\n'
+             hints:NX_CHAR = b'dimensions:\n- - - m_stage_r\n  - primary\n'
+             login_id:NX_CHAR = b'usaxs@usaxscontrol.xray.aps.anl.gov'
+             motors:NX_CHAR = b'- m_stage_r\n'
+             pid:NX_INT64[] = [ ... ]
+             plan_name:NX_CHAR = b'tune_mr'
+             plan_type:NX_CHAR = b'generator'
+             proposal_id:NX_CHAR = b'testing Bluesky installation'
+             purpose:NX_CHAR = b'tuner'
+             run_start_uid:NX_CHAR = 2ffe4d87-9f0c-464a-9d14-213ec71afaf7
+             tune_md:NX_CHAR = b"initial_position: 8.824977\ntime_iso8601: '2019-05-02 17:45:33.923544'\nwidth: -0.004\n"
+             tune_parameters:NX_CHAR = b'initial_position: 8.824977\nnum: 31\npeak_choice: com\nwidth: -0.004\nx_axis: m_stage_r\ny_axis: I0_USAXS\n'
+             uid --> /entry/instrument/bluesky/run_start_uid
+           streams:NXnote
+             baseline:NXnote
+               aps_current:NXdata
+                 EPOCH:NX_FLOAT64[2] = [ ... ]
+                 time:NX_FLOAT64[2] = [ ... ]
+                 value:NX_FLOAT64[2] = [ ... ]
+                 value_end:NX_FLOAT64[] = [ ... ]
+                 value_start:NX_FLOAT64[] = [ ... ]
+               aps_fill_number:NXdata
+                 EPOCH:NX_FLOAT64[2] = [ ... ]
+                 time:NX_FLOAT64[2] = [ ... ]
+                 value:NX_FLOAT64[2] = [ ... ]
+                 value_end:NX_FLOAT64[] = [ ... ]
+                 value_start:NX_FLOAT64[] = [ ... ]
+               aps_global_feedback:NXdata
+                 EPOCH:NX_FLOAT64[2] = [ ... ]
+                 time:NX_FLOAT64[2] = [ ... ]
+                 value:NX_CHAR[3,3] = ["Off", "Off"]
+                 value_end:NX_CHAR = b'Off'
+                 value_start:NX_CHAR = b'Off'
+               # many baseline groups omitted for brevity
+             primary:NXnote
+               I0_USAXS:NXdata
+                 EPOCH:NX_FLOAT64[31] = [ ... ]
+                 time:NX_FLOAT64[31] = [ ... ]
+                 value:NX_FLOAT64[31] = [ ... ]
+               m_stage_r:NXdata
+                 EPOCH:NX_FLOAT64[31] = [ ... ]
+                 time:NX_FLOAT64[31] = [ ... ]
+                 value:NX_FLOAT64[31] = [ ... ]
+               m_stage_r_soft_limit_hi:NXdata
+                 EPOCH:NX_FLOAT64[31] = [ ... ]
+                 time:NX_FLOAT64[31] = [ ... ]
+                 value:NX_FLOAT64[31] = [ ... ]
+               m_stage_r_soft_limit_lo:NXdata
+                 EPOCH:NX_FLOAT64[31] = [ ... ]
+                 time:NX_FLOAT64[31] = [ ... ]
+                 value:NX_FLOAT64[31] = [ ... ]
+               m_stage_r_user_setpoint:NXdata
+                 EPOCH:NX_FLOAT64[31] = [ ... ]
+                 time:NX_FLOAT64[31] = [ ... ]
+                 value:NX_FLOAT64[31] = [ ... ]
+               scaler0_display_rate:NXdata
+                 EPOCH:NX_FLOAT64[31] = [ ... ]
+                 time:NX_FLOAT64[31] = [ ... ]
+                 value:NX_FLOAT64[31] = [ ... ]
+               scaler0_time:NXdata
+                 EPOCH:NX_FLOAT64[31] = [ ... ]
+                 time:NX_FLOAT64[31] = [ ... ]
+                 value:NX_FLOAT64[31] = [ ... ]
+         detectors:NXnote
+           I0_USAXS:NXdetector
+             data --> /entry/instrument/bluesky/streams/primary/I0_USAXS
+         monochromator:NXmonochromator
+           energy --> /entry/instrument/bluesky/streams/baseline/monochromator_dcm_energy/value_start
+           feedback_on --> /entry/instrument/bluesky/streams/baseline/monochromator_feedback_on/value_start
+           mode --> /entry/instrument/bluesky/streams/baseline/monochromator_dcm_mode/value_start
+           theta --> /entry/instrument/bluesky/streams/baseline/monochromator_dcm_theta/value_start
+           wavelength --> /entry/instrument/bluesky/streams/baseline/monochromator_dcm_wavelength/value_start
+           y_offset --> /entry/instrument/bluesky/streams/baseline/monochromator_dcm_y_offset/value_start
+         positioners:NXnote
+           m_stage_r:NXpositioner
+             value --> /entry/instrument/bluesky/streams/primary/m_stage_r
+         source:NXsource
+           name:NX_CHAR = Bluesky framework
+           probe:NX_CHAR = x-ray
+           type:NX_CHAR = Synchrotron X-ray Source
+
+
+APS-specific HDF5/NeXus File Structures
+=======================================
+
+Examples of additional structure in NeXus file added by
+"NXWriterAPS()":
+
+     source:NXsource
+       @NX_class = NXsource
+       @target = /entry/instrument/source
+       current --> /entry/instrument/bluesky/streams/baseline/aps_current/value_start
+       energy:NX_INT64[] = 
+         @units = GeV
+       fill_number --> /entry/instrument/bluesky/streams/baseline/aps_fill_number/value_start
+       name:NX_CHAR = Advanced Photon Source
+         @short_name = APS
+       probe:NX_CHAR = x-ray
+       type:NX_CHAR = Synchrotron X-ray Source
+     undulator:NXinsertion_device
+       @NX_class = NXinsertion_device
+       @target = /entry/instrument/undulator
+       device --> /entry/instrument/bluesky/streams/baseline/undulator_downstream_device/value_start
+       energy --> /entry/instrument/bluesky/streams/baseline/undulator_downstream_energy/value_start
+       energy_taper --> /entry/instrument/bluesky/streams/baseline/undulator_downstream_energy_taper/value_start
+       gap --> /entry/instrument/bluesky/streams/baseline/undulator_downstream_gap/value_start
+       gap_taper --> /entry/instrument/bluesky/streams/baseline/undulator_downstream_gap_taper/value_start
+       harmonic_value --> /entry/instrument/bluesky/streams/baseline/undulator_downstream_harmonic_value/value_start
+       location --> /entry/instrument/bluesky/streams/baseline/undulator_downstream_location/value_start
+       total_power --> /entry/instrument/bluesky/streams/baseline/undulator_downstream_total_power/value_start
+       type:NX_CHAR = undulator
+       version --> /entry/instrument/bluesky/streams/baseline/undulator_downstream_version/value_start
+
+
+SPEC File Structure
+===================
+
+EXAMPLE : use as Bluesky callback:
+
+   from apstools import SpecWriterCallback
+   specwriter = SpecWriterCallback()
+   RE.subscribe(specwriter.receiver)
+
+EXAMPLE : use as writer from Databroker:
+
+   from apstools import SpecWriterCallback
+   specwriter = SpecWriterCallback()
+   for key, doc in db.get_documents(db["a123456"]):
+       specwriter.receiver(key, doc)
+   print("Look at SPEC data file: "+specwriter.spec_filename)
+
+EXAMPLE : use as writer from Databroker with customizations:
+
+   from apstools import SpecWriterCallback
+
+   # write into file: /tmp/cerium.spec
+   specwriter = SpecWriterCallback(filename="/tmp/cerium.spec")
+   for key, doc in db.get_documents(db["abcd123"]):
+       specwriter.receiver(key, doc)
+
+   # write into file: /tmp/barium.dat
+   specwriter.newfile("/tmp/barium.dat")
+   for key, doc in db.get_documents(db["b46b63d4"]):
+       specwriter.receiver(key, doc)
+
+Example output from "SpecWriterCallback()":
+
+   #F test_specdata.txt
+   #E 1510948301
+   #D Fri Nov 17 13:51:41 2017
+   #C BlueSky  user = mintadmin  host = mint-vm
+
+   #S 233  scan(detectors=['synthetic_pseudovoigt'], num=20, motor=['m1'], start=-1.65, stop=-1.25, per_step=None)
+   #D Fri Nov 17 11:58:56 2017
+   #C Fri Nov 17 11:58:56 2017.  plan_type = generator
+   #C Fri Nov 17 11:58:56 2017.  uid = ddb81ac5-f3ee-4219-b047-c1196d08a5c1
+   #MD beamline_id = developer__YOUR_BEAMLINE_HERE
+   #MD login_id = mintadmin@mint-vm
+   #MD motors = ['m1']
+   #MD num_intervals = 19
+   #MD num_points = 20
+   #MD pid = 7133
+   #MD plan_pattern = linspace
+   #MD plan_pattern_args = {'start': -1.65, 'stop': -1.25, 'num': 20}
+   #MD plan_pattern_module = numpy
+   #MD proposal_id = None
+   #N 20
+   #L m1  m1_user_setpoint  Epoch_float  Epoch  synthetic_pseudovoigt
+   -1.6500000000000001 -1.65 8.27465009689331 8 2155.6249784809206
+   -1.6288 -1.6289473684210525 8.46523666381836 8 2629.5229081466964
+   -1.608 -1.6078947368421053 8.665581226348877 9 3277.4074328018964
+   -1.5868 -1.5868421052631578 8.865738153457642 9 4246.145049452576
+   -1.5656 -1.5657894736842104 9.066259145736694 9 5825.186516381953
+   -1.5448000000000002 -1.5447368421052632 9.266754627227783 9 8803.414029867528
+   -1.5236 -1.5236842105263158 9.467074871063232 9 15501.419687691103
+   -1.5028000000000001 -1.5026315789473683 9.667330741882324 10 29570.38936784884
+   -1.4816 -1.4815789473684209 9.867793798446655 10 55562.3437459487
+   -1.4604000000000001 -1.4605263157894737 10.067811012268066 10 89519.64275090238
+   -1.4396 -1.4394736842105262 10.268356084823608 10 97008.97190269837
+   -1.4184 -1.418421052631579 10.470621824264526 10 65917.29757650592
+   -1.3972 -1.3973684210526316 10.669955730438232 11 36203.46726798266
+   -1.3764 -1.3763157894736842 10.870310306549072 11 18897.64061096024
+   -1.3552 -1.3552631578947367 11.070487976074219 11 10316.223844200193
+   -1.3344 -1.3342105263157895 11.271018743515015 11 6540.179615556269
+   -1.3132000000000001 -1.313157894736842 11.4724280834198 11 4643.555421314616
+   -1.292 -1.2921052631578946 11.673305034637451 12 3533.8582404216445
+   -1.2712 -1.2710526315789474 11.874176025390625 12 2809.1872596809008
+   -1.25 -1.25 12.074703216552734 12 2285.9226305883626
+   #C Fri Nov 17 11:59:08 2017.  num_events_primary = 20
+   #C Fri Nov 17 11:59:08 2017.  time = 2017-11-17 11:59:08.324011
+   #C Fri Nov 17 11:59:08 2017.  exit_status = success
+
+
+Source Code
+===========
+
+
+Base Class for File Writer Callbacks
+------------------------------------
+
++------------+--------------------------------------------------------------------------------------------+
+| "FileWrit  | Base class for filewriter callbacks.                                                       |
+| erCallbac  |                                                                                            |
+| kBase"(*a  |                                                                                            |
+| rgs,       |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+class apstools.callbacks.callback_base.FileWriterCallbackBase(*args, **kwargs)
+
+   Base class for filewriter callbacks.
+
+   New with apstools release 1.3.0.
+
+   Applications should subclass and rewrite the "writer()" method.
+
+   The local buffers are cleared when a start document is received.
+   Content is collected here from each document until the stop
+   document. The content is written once the stop document is
+   received.
+
+   User Interface methods
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "receiver  | bluesky callback (handles a stream of documents)                                           |
+   | "(key,     |                                                                                            |
+   | doc)       |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   Internal methods
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "clear"()  | delete any saved data from the cache and reinitialize                                      |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "make_fil  | generate a file name to be used as default                                                 |
+   | e_name"()  |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "writer"() | print summary of run as diagnostic                                                         |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   Document Handler methods
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "bulk_eve  | Deprecated.                                                                                |
+   | nts"(doc)  |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "datum"(d  | Like an event, but for data recorded outside of bluesky.                                   |
+   | oc)        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "descript  | description of the data stream to be acquired                                              |
+   | or"(doc)   |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "event"(d  | a single "row" of data                                                                     |
+   | oc)        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "resource  | like a descriptor, but for data recorded outside of bluesky                                |
+   | "(doc)     |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "start"(d  | beginning of a run, clear cache and collect metadata                                       |
+   | oc)        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "stop"(do  | end of the run, end collection and initiate the "writer()" method                          |
+   | c)         |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   bulk_events(doc)
+
+      Deprecated. Use EventPage instead.
+
+   clear()
+
+      delete any saved data from the cache and reinitialize
+
+   datum(doc)
+
+      Like an event, but for data recorded outside of bluesky.
+
+      Example:
+
+         Datum
+         =====
+         datum_id        : 621caa0f-70f1-4e3d-8718-b5123d434502/0
+         datum_kwargs    :
+         HDF5_file_name  : /mnt/usaxscontrol/USAXS_data/2020-06/06_10_Minjee_waxs/AGIX3N1_0699.hdf
+         point_number    : 0
+         resource        : 621caa0f-70f1-4e3d-8718-b5123d434502
+
+   descriptor(doc)
+
+      description of the data stream to be acquired
+
+   event(doc)
+
+      a single "row" of data
+
+   make_file_name()
+
+      generate a file name to be used as default
+
+      default format: {ymd}-{hms}-S{scan_id}-{short_uid}.{ext} where
+      the time (the run start time):
+
+      * ymd = {year:4d}{month:02d}{day:02d}
+
+      * hms = {hour:02d}{minute:02d}{second:02d}
+
+      override in subclass to change
+
+   receiver(key, doc)
+
+      bluesky callback (handles a stream of documents)
+
+   resource(doc)
+
+      like a descriptor, but for data recorded outside of bluesky
+
+   start(doc)
+
+      beginning of a run, clear cache and collect metadata
+
+   stop(doc)
+
+      end of the run, end collection and initiate the "writer()"
+      method
+
+   writer()
+
+      print summary of run as diagnostic
+
+      override this method in subclass to write a file
+
+
+NeXus File Writer Callbacks
+---------------------------
+
++------------+--------------------------------------------------------------------------------------------+
+| "NXWriter  | General class for writing HDF5/NeXus file (using only NeXus base classes).                 |
+| "(*args,   |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "NXWriter  | Customize "NXWriter" with APS-specific content.                                            |
+| APS"(*arg  |                                                                                            |
+| s,         |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+class apstools.callbacks.nexus_writer.NXWriter(*args, **kwargs)
+
+   General class for writing HDF5/NeXus file (using only NeXus base
+   classes).
+
+   One scan is written to one HDF5/NeXus file.
+
+   Note:
+
+     If you use "NXWriter", you must wait for the *writer()* method to
+     finish before proceeding with the next acquisition or processing.
+     (The *writer()* method is launched in a background thread to
+     complete once all readable assets are available, potentially even
+     after the run ends.)See the table below for which wait method to
+     call.
+
+   EXAMPLES:
+
+   Interactive use (outside of a plan):
+
+      # ...
+      nxwriter = NXWriter()  # create the callback instance
+      RE.subscribe(nxwriter.receiver)  # subscribe to the RunEngine
+      # ...
+      RE(bp.count([camera]))
+      nxwriter.wait_writer()
+      # ...
+      run = cat.v2[-1]  # for additional processing
+
+   Note:
+
+     There are two methods to wait for the callback.  One is for
+     *interactive* use when not using the RunEngine.  The other is for
+     use *in a plan* that is executed by the bluesky RunEngine.
+
+        +--------------+-----------------------------+----------------------------+
+        | When         | Method                      | Which uses                 |
+        |==============|=============================|============================|
+        | interactive  | "wait_writer()"             | "time.sleep()"             |
+        +--------------+-----------------------------+----------------------------+
+        | in a plan    | "wait_writer_plan_stub()"   | "yield from bps.sleep()"   |
+        +--------------+-----------------------------+----------------------------+
+
+        The "wait_writer()" method calls "time.sleep()" and this would
+        block the RunEngine from its routine processing of other
+        background tasks. The "wait_writer_plan_stub()" method
+        replaces that call with "yield from bps.sleep()" which does
+        not block the RunEngine from processing other background
+        tasks.
+
+   In a custom **plan**, use the "wait_writer_plan_stub()" method
+   instead:
+
+      # ...
+      nxwriter = NXWriter()  # create the callback instance
+      RE.subscribe(nxwriter.receiver)  # subscribe to the RunEngine
+      # ...
+
+      def my_plan(dets, n=5):
+          for i in range(n):
+              yield from bp.count(dets)
+              yield from nxwriter.wait_writer_plan_stub()
+
+   METHODS
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "writer"() | Write collected data to HDF5/NeXus data file.                                              |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "h5string  | Format string for h5py interface.                                                          |
+   | "(text)    |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "add_data  | add attributes from v dictionary to dataset ds                                             |
+   | set_attri  |                                                                                            |
+   | butes"(ds, |                                                                                            |
+   | v[, long_  |                                                                                            |
+   | name])     |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "assign_s  | decide if a signal in the primary stream is a detector or a positioner                     |
+   | ignal_typ  |                                                                                            |
+   | e"()       |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "create_N  | create an h5 group with named NeXus class (specification)                                  |
+   | X_group"(  |                                                                                            |
+   | parent, s  |                                                                                            |
+   | pecificat  |                                                                                            |
+   | ion)       |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "get_samp  | return the title for this sample                                                           |
+   | le_title"  |                                                                                            |
+   | ()         |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "get_stre  | return the h5 object for "signal"                                                          |
+   | am_link"(  |                                                                                            |
+   | signal[,   |                                                                                            |
+   | stream,    |                                                                                            |
+   | ref])      |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "resolve_  | Parse the class path, make any groups, return the HDF5 address.                            |
+   | class_pat  |                                                                                            |
+   | h"(class_  |                                                                                            |
+   | path)      |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "wait_wri  | Wait for the writer to finish.                                                             |
+   | ter"()     |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "wait_wri  | Wait for the writer to finish.                                                             |
+   | ter_plan_  |                                                                                            |
+   | stub"()    |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_da  | group: /entry/data:NXdata                                                                  |
+   | ta"(paren  |                                                                                            |
+   | t)         |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_de  | group: /entry/instrument/detectors:NXnote/DETECTOR:NXdetector                              |
+   | tector"(p  |                                                                                            |
+   | arent)     |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_en  | group: /entry/data:NXentry                                                                 |
+   | try"()     |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_in  | group: /entry/instrument:NXinstrument                                                      |
+   | strument"  |                                                                                            |
+   | (parent)   |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_me  | group: /entry/instrument/bluesky/metadata:NXnote                                           |
+   | tadata"(p  |                                                                                            |
+   | arent)     |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_mo  | group: /entry/instrument/monochromator:NXmonochromator                                     |
+   | nochromat  |                                                                                            |
+   | or"(paren  |                                                                                            |
+   | t)         |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_po  | group: /entry/instrument/positioners:NXnote/POSITIONER:NXpositioner                        |
+   | sitioner"  |                                                                                            |
+   | (parent)   |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_ro  | root of the HDF5 file                                                                      |
+   | ot"(filen  |                                                                                            |
+   | ame)       |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_sa  | group: /entry/sample:NXsample                                                              |
+   | mple"(par  |                                                                                            |
+   | ent)       |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_sl  | group: /entry/instrument/slits:NXnote/SLIT:NXslit                                          |
+   | its"(pare  |                                                                                            |
+   | nt)        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_so  | group: /entry/instrument/source:NXsource                                                   |
+   | urce"(par  |                                                                                            |
+   | ent)       |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_st  | group: /entry/instrument/bluesky/streams:NXnote                                            |
+   | reams"(pa  |                                                                                            |
+   | rent)      |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_te  | Process any link templates provided as run metadata.                                       |
+   | mplates"() |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_us  | group: /entry/contact:NXuser                                                               |
+   | er"(paren  |                                                                                            |
+   | t)         |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   New with apstools release 1.3.0. Update in release 1.6.11 to wait
+   for area detector HDF5 files.
+
+   add_dataset_attributes(ds, v, long_name=None)
+
+      add attributes from v dictionary to dataset ds
+
+   assign_signal_type()
+
+      decide if a signal in the primary stream is a detector or a
+      positioner
+
+   create_NX_group(parent, specification)
+
+      create an h5 group with named NeXus class (specification)
+
+   getResourceFile(resource_id)
+
+      full path to the resource file specified by uid "resource_id"
+
+      override in subclass as needed
+
+   get_sample_title()
+
+      return the title for this sample
+
+      default title: S{scan_id}-{plan_name}-{short_uid}
+
+   get_stream_link(signal, stream=None, ref=None)
+
+      return the h5 object for "signal"
+
+      DEFAULTS
+
+      "stream" : "baseline" "key" : "value_start"
+
+   h5string(text)
+
+      Format string for h5py interface.
+
+   resolve_class_path(class_path)
+
+      Parse the class path, make any groups, return the HDF5 address.
+
+      New with apstools release 1.6.18.
+
+   template_key = 'nxwriter_template'
+
+      The template (dict) is written as a JSON string to this metadata
+      key.
+
+   wait_writer()
+
+      Wait for the writer to finish.  For interactive use (Not in a
+      plan).
+
+      If you use "NXWriter" interactively, you must call
+      "NXWriter.wait_writer()" which waits for all data processing to
+      finish before proceeding with the next acquisition or
+      processing.
+
+   wait_writer_plan_stub()
+
+      Wait for the writer to finish.  Use in a plan (with RunEngine).
+
+      If you use "NXWriter" in a plan, you must call
+      "NXWriter.wait_writer()" which waits for all data processing to
+      finish before proceeding with the next acquisition or
+      processing.
+
+   write_data(parent)
+
+      group: /entry/data:NXdata
+
+   write_detector(parent)
+
+      group: /entry/instrument/detectors:NXnote/DETECTOR:NXdetector
+
+   write_entry()
+
+      group: /entry/data:NXentry
+
+   write_instrument(parent)
+
+      group: /entry/instrument:NXinstrument
+
+   write_metadata(parent)
+
+      group: /entry/instrument/bluesky/metadata:NXnote
+
+      metadata from the bluesky start document
+
+   write_monochromator(parent)
+
+      group: /entry/instrument/monochromator:NXmonochromator
+
+   write_positioner(parent)
+
+      group:
+      /entry/instrument/positioners:NXnote/POSITIONER:NXpositioner
+
+   write_root(filename)
+
+      root of the HDF5 file
+
+   write_sample(parent)
+
+      group: /entry/sample:NXsample
+
+   write_slits(parent)
+
+      group: /entry/instrument/slits:NXnote/SLIT:NXslit
+
+      override in subclass to store content, name patterns vary with
+      each instrument
+
+   write_source(parent)
+
+      group: /entry/instrument/source:NXsource
+
+      Note: this is (somewhat) generic, override for a different
+      source
+
+   write_streams(parent)
+
+      group: /entry/instrument/bluesky/streams:NXnote
+
+      data from all the bluesky streams
+
+   write_templates()
+
+      Process any link templates provided as run metadata.
+
+      New in v1.6.18.
+
+   write_user(parent)
+
+      group: /entry/contact:NXuser
+
+   writer()
+
+      Write collected data to HDF5/NeXus data file.
+
+      The callback launches "_threaded_writer()" and returns. In the
+      thread, "write_root()" (or methods within) can wait on certain
+      items (such as an external HDF5 file written by an area detector
+      IOC) to become readable or a timeout period has expired.
+
+class apstools.callbacks.nexus_writer.NXWriterAPS(*args, **kwargs)
+
+   Customize "NXWriter" with APS-specific content.
+
+   New with apstools release 1.3.0.
+
+   * Adds */entry/instrument/undulator* group if metadata exists.
+
+   * Adds APS information to */entry/instrument/source* group.
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_in  | group: /entry/instrument:NXinstrument                                                      |
+   | strument"  |                                                                                            |
+   | (parent)   |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_so  | group: /entry/instrument/source:NXsource                                                   |
+   | urce"(par  |                                                                                            |
+   | ent)       |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_un  | group: /entry/instrument/undulator:NXinsertion_device                                      |
+   | dulator"(  |                                                                                            |
+   | parent)    |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   write_instrument(parent)
+
+      group: /entry/instrument:NXinstrument
+
+   write_source(parent)
+
+      group: /entry/instrument/source:NXsource
+
+      Note: this is specific to the APS, override for a different
+      source
+
+   write_undulator(parent)
+
+      group: /entry/instrument/undulator:NXinsertion_device
+
+
+SPEC Data File Writer Callback
+------------------------------
+
+EXAMPLE:
+
+Execution of this plan (with "RE(myPlan())"):
+
+   def myPlan():
+       yield from bps.open_run()
+       spec_comment("this is a start document comment", "start")
+       spec_comment("this is a descriptor document comment", "descriptor")
+       yield bps.Msg('checkpoint')
+       yield from bps.trigger_and_read([scaler])
+       spec_comment("this is an event document comment after the first read")
+       yield from bps.sleep(2)
+       yield bps.Msg('checkpoint')
+       yield from bps.trigger_and_read([scaler])
+       spec_comment("this is an event document comment after the second read")
+       spec_comment("this is a stop document comment", "stop")
+       yield from bps.close_run()
+
+results in this SPEC file output:
+
+   #S 1145  myPlan()
+   #D Mon Jan 28 12:48:09 2019
+   #C Mon Jan 28 12:48:09 2019.  plan_type = generator
+   #C Mon Jan 28 12:48:09 2019.  uid = ef98648a-8e3a-4e7e-ac99-3290c9b5fca7
+   #C Mon Jan 28 12:48:09 2019.  this is a start document comment
+   #C Mon Jan 28 12:48:09 2019.  this is a descriptor document comment
+   #MD APSTOOLS_VERSION = 2019.0103.0+5.g0f4e8b2
+   #MD BLUESKY_VERSION = 1.4.1
+   #MD OPHYD_VERSION = 1.3.0
+   #MD SESSION_START = 2019-01-28 12:19:25.446836
+   #MD beamline_id = developer
+   #MD ipython_session_start = 2018-02-14 12:54:06.447450
+   #MD login_id = mintadmin@mint-vm
+   #MD pid = 21784
+   #MD proposal_id = None
+   #N 2
+   #L Epoch_float  scaler_time  Epoch
+   1.4297869205474854 1.1 1
+   4.596935987472534 1.1 5
+   #C Mon Jan 28 12:48:11 2019.  this is an event document comment after the first read
+   #C Mon Jan 28 12:48:14 2019.  this is an event document comment after the second read
+   #C Mon Jan 28 12:48:14 2019.  this is a stop document comment
+   #C Mon Jan 28 12:48:14 2019.  num_events_primary = 2
+   #C Mon Jan 28 12:48:14 2019.  exit_status = success
+
++------------+--------------------------------------------------------------------------------------------+
+| "SpecWrit  | **Deprecated**: Use "SpecWriterCallback2".                                                 |
+| erCallbac  |                                                                                            |
+| k"([filen  |                                                                                            |
+| ame, auto  |                                                                                            |
+| _write,    |                                                                                            |
+| ...])      |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "SpecWrit  | Write SPEC data file as data is collected, line-by-line.                                   |
+| erCallbac  |                                                                                            |
+| k2"(*args, |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "spec_com  | make it easy to add spec-style comments in a custom plan                                   |
+| ment"(com  |                                                                                            |
+| ment[,     |                                                                                            |
+| doc,       |                                                                                            |
+| writer])   |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+class apstools.callbacks.spec_file_writer.SpecWriterCallback(filename=None, auto_write=True, RE=None, reset_scan_id=False)
+
+   **Deprecated**: Use "SpecWriterCallback2".
+
+   Collect data from Bluesky RunEngine documents to write as SPEC
+   data.
+
+   This gathers data from all documents in a scan and appends scan to
+   the file when the "stop" document is received.  One or more scans
+   can be written to the same file.  The file format is text.
+
+   Note:
+
+     "SpecWriterCallback()" does **not** inherit from
+     "FileWriterCallbackBase()".
+
+   PARAMETERS
+
+   filename
+      *string* : (optional) Local, relative or absolute name of SPEC
+      data file to be used. If "filename=None", defaults to format of
+      "YYYmmdd-HHMMSS.dat" derived from the current system time.
+
+   auto_write
+      *boolean* : (optional) If "True" (default), "write_scan()" is
+      called when *stop* document is received. If "False", the caller
+      is responsible for calling "write_scan()" before the next
+      "start" document is received.
+
+   RE
+      *object* : Instance of "bluesky.RunEngine" or "None".
+
+   reset_scan_id
+      *boolean* : (optional) If True, and filename exists, then sets
+      "RE.md.scan_id" to highest scan number in existing SPEC data
+      file. default: False
+
+   User Interface methods
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "receiver  | Bluesky callback: receive all documents for handling                                       |
+   | "(key,     |                                                                                            |
+   | document)  |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "newfile"  | prepare to use a new SPEC data file                                                        |
+   | ([filenam  |                                                                                            |
+   | e,         |                                                                                            |
+   | scan_id,   |                                                                                            |
+   | RE])       |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "usefile"  | read from existing SPEC data file                                                          |
+   | (filename) |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "make_def  | generate a file name to be used as default                                                 |
+   | ault_file  |                                                                                            |
+   | name"()    |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "clear"()  | reset all scan data defaults                                                               |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "prepare_  | format the scan for a SPEC data file                                                       |
+   | scan_cont  |                                                                                            |
+   | ents"()    |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_sc  | write the most recent (completed) scan to the file                                         |
+   | an"()      |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   Internal methods
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_he  | Write the (initial) header section of a SPEC data file.                                    |
+   | ader"()    |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "start"(d  | handle *start* documents                                                                   |
+   | oc)        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "descript  | handle *descriptor* documents                                                              |
+   | or"(doc)   |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "event"(d  | handle *event* documents                                                                   |
+   | oc)        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "bulk_eve  | handle *bulk_events* documents                                                             |
+   | nts"(doc)  |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "datum"(d  | handle *datum* documents                                                                   |
+   | oc)        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "resource  | handle *resource* documents                                                                |
+   | "(doc)     |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "stop"(do  | handle *stop* documents                                                                    |
+   | c)         |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   bulk_events(doc)
+
+      handle *bulk_events* documents
+
+   clear()
+
+      reset all scan data defaults
+
+   datum(doc)
+
+      handle *datum* documents
+
+   descriptor(doc)
+
+      handle *descriptor* documents
+
+      prepare for primary scan data, ignore any other data stream
+
+   event(doc)
+
+      handle *event* documents
+
+   make_default_filename()
+
+      generate a file name to be used as default
+
+   newfile(filename=None, scan_id=None, RE=None)
+
+      prepare to use a new SPEC data file
+
+      but don't create it until we have data
+
+   prepare_scan_contents()
+
+      format the scan for a SPEC data file
+
+      Returns:
+         [str] a list of lines to append to the data file
+
+   receiver(key, document)
+
+      Bluesky callback: receive all documents for handling
+
+   resource(doc)
+
+      handle *resource* documents
+
+   start(doc)
+
+      handle *start* documents
+
+   stop(doc)
+
+      handle *stop* documents
+
+   usefile(filename)
+
+      read from existing SPEC data file
+
+   write_header()
+
+      Write the (initial) header section of a SPEC data file.
+
+   write_scan()
+
+      write the most recent (completed) scan to the file
+
+      * creates file if not existing
+
+      * writes header if needed
+
+      * appends scan data
+
+      note:  does nothing if there are no lines to be written
+
+class apstools.callbacks.spec_file_writer.SpecWriterCallback2(*args, **kwargs)
+
+   Write SPEC data file as data is collected, line-by-line.
+
+   This writes data from a scan as each *event* document is received.
+   One or more scans can be written to the same file.  The file format
+   is text.
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "descript  | Handle *descriptor* documents of certain streams.                                          |
+   | or"(doc)   |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "event"(d  | a single "row" of data                                                                     |
+   | oc)        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "start"(d  | First document of the run.                                                                 |
+   | oc)        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "stop"(do  | Last document of the run.                                                                  |
+   | c)         |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "writer"() | Output to a file completed by other methods.                                               |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "_cmt"(te  | Return a SPEC-style comment.                                                               |
+   | xt)        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "_write_l  | write (more) lines to the file                                                             |
+   | ines_"(li  |                                                                                            |
+   | nes[,      |                                                                                            |
+   | mode])     |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "make_def  | generate a file name to be used as default                                                 |
+   | ault_file  |                                                                                            |
+   | name"()    |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "newfile"  | prepare to use a new SPEC data file                                                        |
+   | ([filenam  |                                                                                            |
+   | e,         |                                                                                            |
+   | scan_id,   |                                                                                            |
+   | RE])       |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "usefile"  | read from existing SPEC data file                                                          |
+   | (filename) |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_fi  | Write file header to file, if needed.                                                      |
+   | le_header  |                                                                                            |
+   | "()        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_sc  | Write row of scan data to file.                                                            |
+   | an_data_r  |                                                                                            |
+   | ow"(doc)   |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_sc  | Write scan ending to file.                                                                 |
+   | an_end"(d  |                                                                                            |
+   | oc)        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+   | "write_sc  | Write scan header to file.                                                                 |
+   | an_header  |                                                                                            |
+   | "()        |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "spec_fil  | Synonym for 'file_name' property.                                                          |
+   | ename"     |                                                                                            |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   *New in apstools 1.7.0.*
+
+   descriptor(doc)
+
+      Handle *descriptor* documents of certain streams.
+
+   event(doc)
+
+      a single "row" of data
+
+   make_default_filename()
+
+      generate a file name to be used as default
+
+   newfile(filename=None, scan_id=None, RE=None)
+
+      prepare to use a new SPEC data file
+
+      but don't create it until we have data
+
+   property spec_filename
+
+      Synonym for 'file_name' property.
+
+      API compatibility with SpecWriterCallback.
+
+   start(doc)
+
+      First document of the run.
+
+   stop(doc)
+
+      Last document of the run.
+
+   usefile(filename)
+
+      read from existing SPEC data file
+
+   write_file_header()
+
+      Write file header to file, if needed.
+
+   write_scan_data_row(doc)
+
+      Write row of scan data to file.
+
+   write_scan_end(doc)
+
+      Write scan ending to file.
+
+   write_scan_header()
+
+      Write scan header to file.
+
+   writer()
+
+      Output to a file completed by other methods.
+
+apstools.callbacks.spec_file_writer.spec_comment(comment, doc=None, writer=None)
+
+   make it easy to add spec-style comments in a custom plan
+
+   These comments *only* go into the SPEC data file.
+
+   PARAMETERS
+
+   comment *string* :
+      (optional) Comment text to be written.  SPEC expects it to be
+      only one line!
+
+   doc *string* :
+      (optional) Bluesky RunEngine document type. One of: "start
+      descriptor event resource datum stop" (default: "event")
+
+   writer *obj* :
+      (optional) Instance of "SpecWriterCallback()", typically:
+      "specwriter = SpecWriterCallback()"

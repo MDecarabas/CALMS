@@ -1,0 +1,92 @@
+EPICS Record support: common structures
+***************************************
+
+Some fields are common [1] to all [2] or some EPICS records.  These
+are defined as mixin classes for the various ophyd-style devices.
+
+[1] https://docs.epics-controls.org/en/latest/guides/EPICS_Intro.html
+    #ioc-database,
+
+[2] https://epics.anl.gov/base/R7-0/6-docs/RecordReference.html
+
+Ophyd support for fields common to all EPICS records
+
+Public Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "EpicsRec  | Many of the fields common to all EPICS records.                                            |
+| ordDevice  |                                                                                            |
+| CommonAll  |                                                                                            |
+| "(*args,   |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "EpicsRec  | Some fields common to EPICS input records.                                                 |
+| ordInputF  |                                                                                            |
+| ields"(*a  |                                                                                            |
+| rgs,       |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "EpicsRec  | Some fields common to EPICS output records.                                                |
+| ordOutput  |                                                                                            |
+| Fields"(*  |                                                                                            |
+| args,      |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "EpicsRec  | Some fields common to EPICS analog output records, such as "ao".                           |
+| ordAnalog  |                                                                                            |
+| OutputFie  |                                                                                            |
+| lds"(*arg  |                                                                                            |
+| s,         |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "EpicsRec  | Some fields common to EPICS records supporting floating point values.                      |
+| ordFloatF  |                                                                                            |
+| ields"(*a  |                                                                                            |
+| rgs,       |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "EpicsSyn  | Supports "{PV}Enable" feature from user databases.                                         |
+| AppsRecor  |                                                                                            |
+| dEnableMi  |                                                                                            |
+| xin"(*arg  |                                                                                            |
+| s,         |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+see:
+   https://wiki-ext.aps.anl.gov/epics/index.php/RRM_3-14_dbCommon
+
+see:
+   https://wiki-ext.aps.anl.gov/epics/index.php/RRM_3-14_Common
+
+class apstools.synApps._common.EpicsRecordAnalogOutputFields(*args: Any, **kwargs: Any)
+
+   Some fields common to EPICS analog output records, such as "ao".
+
+class apstools.synApps._common.EpicsRecordDeviceCommonAll(*args: Any, **kwargs: Any)
+
+   Many of the fields common to all EPICS records.
+
+   Some fields are not included because they are not interesting to an
+   EPICS client or are already provided in other support.
+
+class apstools.synApps._common.EpicsRecordFloatFields(*args: Any, **kwargs: Any)
+
+   Some fields common to EPICS records supporting floating point
+   values.
+
+class apstools.synApps._common.EpicsRecordInputFields(*args: Any, **kwargs: Any)
+
+   Some fields common to EPICS input records.
+
+class apstools.synApps._common.EpicsRecordOutputFields(*args: Any, **kwargs: Any)
+
+   Some fields common to EPICS output records.
+
+class apstools.synApps._common.EpicsSynAppsRecordEnableMixin(*args: Any, **kwargs: Any)
+
+   Supports "{PV}Enable" feature from user databases.
+
+   reset()
+
+      set all fields to default values

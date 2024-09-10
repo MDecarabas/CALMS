@@ -1,0 +1,44 @@
+Plan Examples
+*************
+
+* The "Excel_plan()" – batch scans using a spreadsheet
+
+  * Excel plan and infrastructure
+
+* The "lineup()" plan - align an axis with a signal
+
+  * Setup
+
+  * Scan
+
+  * Validate
+
+* The "nscan()" plan – scan multiple axes together
+
+  * Setup
+
+  * Scan
+
+* The "run_command_file()" plan -- batch scans using a text file
+
+  * The Command File
+
+  * The *Actions*
+
+  * Register our own "execute_command_list"
+
+  * Testing the command file
+
+  * Running the command file
+
+  * Appendix: Other spreadsheet examples
+
+* The "TuneAxis()" plan - align an axis with a signal
+
+  * Setup the simulated detector signal.
+
+  * Set up the tuner
+
+  * Multi-pass tune
+
+  * Single-pass tune

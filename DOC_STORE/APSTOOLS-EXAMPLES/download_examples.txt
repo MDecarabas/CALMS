@@ -1,0 +1,31 @@
+File Downloads for the Examples
+*******************************
+
+Jupyter notebooks and files for the Examples are available for
+download:
+
+* jupyter notebook: "de_0_adsim_hdf5_basic"
+
+* jupyter notebook: "de_1_adsim_hdf5_custom_names"
+
+* jupyter notebook: "de_2_adsim_hdf5_single_mode"
+
+* jupyter notebook: "pl_excel_scan"
+
+  * "sample_example.xlsx"
+
+* jupyter notebook: "pl_nscan"
+
+* jupyter notebook: "pl_tuneaxis"
+
+* jupyter notebook: "fw_specfile_example"
+
+  * "spec1.dat"
+
+  * "spec2.dat"
+
+  * "spec3.dat"
+
+  * "spec_tunes.dat"
+
+  * "test_specdata.txt"

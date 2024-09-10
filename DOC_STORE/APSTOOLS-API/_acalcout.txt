@@ -1,0 +1,136 @@
+EPICS base aCalcout record
+**************************
+
+The "aCalcout" record is part of EPICS base: https://epics-
+modules.github.io/calc/aCalcoutRecord.html
+
+Ophyd support for the EPICS acalcout record
+
+https://epics-modules.github.io/calc/aCalcoutRecord.html
+
+Public Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "UserArra  | EPICS synApps XXX IOC setup of user aCalcouts: "$(P):userArrayCalc$(N)"                    |
+| yCalcDevi  |                                                                                            |
+| ce"(*args, |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "UserArra  | Single instance of the userCalcoutN database.                                              |
+| yCalcN"(*  |                                                                                            |
+| args,      |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "Acalcout  | EPICS base aCalcout record support in ophyd                                                |
+| Record"(*  |                                                                                            |
+| args,      |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "Acalcout  | Array channel of a acalcout record: A-L.                                                   |
+| ArrayReco  |                                                                                            |
+| rdChannel  |                                                                                            |
+| "(*args,   |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "Acalcout  | Float channel of a acalcout record: A-L.                                                   |
+| RecordCha  |                                                                                            |
+| nnel"(*ar  |                                                                                            |
+| gs,        |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+class apstools.synApps.acalcout.AcalcoutArrayRecordChannel(*args: Any, **kwargs: Any)
+
+   Array channel of a acalcout record: A-L.
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.acalcout.AcalcoutRecord(*args: Any, **kwargs: Any)
+
+   EPICS base aCalcout record support in ophyd
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   See:
+      https://epics-modules.github.io/calc/aCalcoutRecord.html
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.acalcout.AcalcoutRecordChannel(*args: Any, **kwargs: Any)
+
+   Float channel of a acalcout record: A-L.
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.acalcout.UserArrayCalcDevice(*args: Any, **kwargs: Any)
+
+   EPICS synApps XXX IOC setup of user aCalcouts:
+   "$(P):userArrayCalc$(N)"
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   acalcout1
+
+      alias of "UserArrayCalcN"
+
+   acalcout10
+
+      alias of "UserArrayCalcN"
+
+   acalcout2
+
+      alias of "UserArrayCalcN"
+
+   acalcout3
+
+      alias of "UserArrayCalcN"
+
+   acalcout4
+
+      alias of "UserArrayCalcN"
+
+   acalcout5
+
+      alias of "UserArrayCalcN"
+
+   acalcout6
+
+      alias of "UserArrayCalcN"
+
+   acalcout7
+
+      alias of "UserArrayCalcN"
+
+   acalcout8
+
+      alias of "UserArrayCalcN"
+
+   acalcout9
+
+      alias of "UserArrayCalcN"
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.acalcout.UserArrayCalcN(*args: Any, **kwargs: Any)
+
+   Single instance of the userCalcoutN database.

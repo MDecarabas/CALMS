@@ -47,7 +47,10 @@ doc_paths = [
             #  "%s/CNM-Docs" %doc_path_root,
             #  "%s/CNM-Science-Highlight" %doc_path_root,
              "%s/BLUESKY-CODE" %doc_path_root,
-             "%s/APSTOOLS-CODE" %doc_path_root
+             "%s/APSTOOLS-CODE" %doc_path_root,
+             "%s/APSTOOLS-API" %doc_path_root,
+             "%s/APSTOOLS-EXAMPLES" %doc_path_root
+
             ]
 pdf_text_path = "%s/PDFs"  %doc_path_root#Store raw text from PDF for NER
 

@@ -1,0 +1,139 @@
+EPICS synApps calc scalcout record
+**********************************
+
+The "scalcout" record is part of EPICS synApps "calc":
+http://htmlpreview.github.io/?https://github.com/epics-
+modules/calc/blob/R3-6-1/documentation/calcDocs.html
+
+Ophyd support for the EPICS scalcout record
+
+http://htmlpreview.github.io/?https://github.com/epics-
+modules/calc/blob/R3-6-1/documentation/calcDocs.html
+
+Public Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "UserScal  | EPICS synApps XXX IOC setup of user scalcouts: "$(P):userStringCalc$(N)"                   |
+| coutDevic  |                                                                                            |
+| e"(*args,  |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "UserScal  | Single instance of the userStringCalcN database.                                           |
+| coutN"(*a  |                                                                                            |
+| rgs,       |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "Scalcout  | EPICS SynApps calc scalcout record support in ophyd                                        |
+| Record"(*  |                                                                                            |
+| args,      |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "Scalcout  | Number channel of an scalcout record: A-L                                                  |
+| RecordNum  |                                                                                            |
+| berChanne  |                                                                                            |
+| l"(*args,  |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "Scalcout  | String channel of an scalcout record: AA-LL                                                |
+| RecordStr  |                                                                                            |
+| ingChanne  |                                                                                            |
+| l"(*args,  |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+class apstools.synApps.scalcout.ScalcoutRecord(*args: Any, **kwargs: Any)
+
+   EPICS SynApps calc scalcout record support in ophyd
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   See:
+      http://htmlpreview.github.io/?https://github.com/epics-
+      modules/calc/blob/R3-6-1/documentation/calcDocs.html
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.scalcout.ScalcoutRecordNumberChannel(*args: Any, **kwargs: Any)
+
+   Number channel of an scalcout record: A-L
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.scalcout.ScalcoutRecordStringChannel(*args: Any, **kwargs: Any)
+
+   String channel of an scalcout record: AA-LL
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   reset()
+
+      set all fields to default values
+
+class apstools.synApps.scalcout.UserScalcoutDevice(*args: Any, **kwargs: Any)
+
+   EPICS synApps XXX IOC setup of user scalcouts:
+   "$(P):userStringCalc$(N)"
+
+   +------------+--------------------------------------------------------------------------------------------+
+   | "reset"()  | set all fields to default values                                                           |
+   +------------+--------------------------------------------------------------------------------------------+
+
+   reset()
+
+      set all fields to default values
+
+   scalcout1
+
+      alias of "UserScalcoutN"
+
+   scalcout10
+
+      alias of "UserScalcoutN"
+
+   scalcout2
+
+      alias of "UserScalcoutN"
+
+   scalcout3
+
+      alias of "UserScalcoutN"
+
+   scalcout4
+
+      alias of "UserScalcoutN"
+
+   scalcout5
+
+      alias of "UserScalcoutN"
+
+   scalcout6
+
+      alias of "UserScalcoutN"
+
+   scalcout7
+
+      alias of "UserScalcoutN"
+
+   scalcout8
+
+      alias of "UserScalcoutN"
+
+   scalcout9
+
+      alias of "UserScalcoutN"
+
+class apstools.synApps.scalcout.UserScalcoutN(*args: Any, **kwargs: Any)
+
+   Single instance of the userStringCalcN database.

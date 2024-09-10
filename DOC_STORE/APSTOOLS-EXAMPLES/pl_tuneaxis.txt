@@ -1,0 +1,412 @@
+The "TuneAxis()" plan - align an axis with a signal
+***************************************************
+
+In this example, we demonstrate the "apstools.plans.TuneAxis()" plan.
+The "TuneAxis()" support may be used to align (a.k.a. *tune*) a signal
+against an axis.
+
+We’ll use a software-only (not connected to hardware) motor as a
+positioner. Here, we prepare a signal that is a computation based on
+the value of our positioner. The computed signal is a model of a
+realistic diffraction peak (pseudo-Voigt, a mixture of a Gaussian and
+a Lorentzian) one might encounter in a powder diffraction scan. The
+model peak is a pseudo-voigt function to which some noise has been
+added. Random numbers are used to modify the ideal pseudo-voigt
+function so as to simulate a realistic signal.
+
+For this demo, we do not need the databroker since we do not plan to
+review any of this data after collection. We’ll display the data
+during the scan using a "LiveTable()" subscription to the
+"bluesky.RunEngine()".
+
+   from apstools.devices import SynPseudoVoigt
+   from apstools.plans import TuneAxis
+   from bluesky import RunEngine
+   from bluesky import plans as bp
+   from bluesky.callbacks import LiveTable
+   import numpy as np
+   from ophyd import EpicsMotor
+
+   RE = RunEngine({})
+
+Set the IOC prefix.
+
+   IOC = "gp:"
+
+Connect to our motor *before* we create the simulated detector signal.
+
+   m1 = EpicsMotor(f"{IOC}m1", name="m1")
+   m1.wait_for_connection()
+
+Define a starting position, we’ll use this later in the demo.
+
+   m1.move(-1.5)
+   starting_position = m1.position
+
+
+Setup the simulated detector signal.
+====================================
+
+Make a simple scan with a simulated motor and the "SynPseudoVoigt()"
+signal.
+
+   from ophyd.sim import motor
+
+   det = SynPseudoVoigt('det', motor, 'motor',
+       center=0, eta=0.5, scale=1, sigma=1, bkg=0)
+
+   live_table = LiveTable(["motor", "det"])
+
+   RE(bp.scan([det], motor, -3, 3, 19), live_table)
+
++-----------+------------+------------+------------+
+|   seq_num |       time |      motor |        det |
++-----------+------------+------------+------------+
+|         1 | 00:33:31.9 |     -3.000 |      0.056 |
+|         2 | 00:33:31.9 |     -2.667 |      0.076 |
+|         3 | 00:33:31.9 |     -2.333 |      0.110 |
+|         4 | 00:33:31.9 |     -2.000 |      0.168 |
+|         5 | 00:33:31.9 |     -1.667 |      0.257 |
+|         6 | 00:33:32.0 |     -1.333 |      0.386 |
+|         7 | 00:33:32.0 |     -1.000 |      0.553 |
+|         8 | 00:33:32.0 |     -0.667 |      0.747 |
+|         9 | 00:33:32.0 |     -0.333 |      0.923 |
+|        10 | 00:33:32.0 |      0.000 |      1.000 |
+|        11 | 00:33:32.0 |      0.333 |      0.923 |
+|        12 | 00:33:32.0 |      0.667 |      0.747 |
+|        13 | 00:33:32.0 |      1.000 |      0.553 |
+|        14 | 00:33:32.0 |      1.333 |      0.386 |
+|        15 | 00:33:32.0 |      1.667 |      0.257 |
+|        16 | 00:33:32.0 |      2.000 |      0.168 |
+|        17 | 00:33:32.0 |      2.333 |      0.110 |
+|        18 | 00:33:32.0 |      2.667 |      0.076 |
+|        19 | 00:33:32.0 |      3.000 |      0.056 |
++-----------+------------+------------+------------+
+generator scan ['f7d1a4f9'] (scan num: 1)
+
+('f7d1a4f9-de81-4e9d-b253-28d7f6c0e5a8',)
+
+Make a new signal with randomized values so that we have something
+interesting to find with "TuneAxis()".
+
+   spvoigt = SynPseudoVoigt(
+       'spvoigt', m1, 'm1',
+       center=-1.5 + 0.4*np.random.uniform(),
+       eta=0.2 + 0.5*np.random.uniform(),
+       sigma=0.001 + 0.05*np.random.uniform(),
+       scale=1e5,
+       bkg=0.01*np.random.uniform())
+
+Reveal the actual values. These are the answers we expect to discover.
+
+   print(f"{spvoigt.scale = }")
+   print(f"{spvoigt.center = }")
+   print(f"{spvoigt.sigma = }")
+   print(f"{spvoigt.eta = }")
+   print(f"{spvoigt.bkg = }")
+
+spvoigt.scale = 100000.0
+spvoigt.center = -1.3232789849401074
+spvoigt.sigma = 0.025854531457453644
+spvoigt.eta = 0.6200793404520202
+spvoigt.bkg = 0.002625081504664745
+
+We will add the actual values as metadata to these scans.
+
+   md = dict(
+       activity = "TuneAxis development and testing",
+       peak_model = "pseudo Voigt",
+       peak_scale = spvoigt.scale,
+       peak_center = spvoigt.center,
+       peak_sigma = spvoigt.sigma,
+       peak_eta = spvoigt.eta,
+       peak_bkg = spvoigt.bkg
+       )
+
+
+Set up the tuner
+================
+
+Create a *TuneAxis()* object. The *tuner* needs to know the
+positioner, what range to scan to find the peak, *and* it needs the
+name of the signal to be scanned (since the signal list may have more
+than one signal).
+
+   tuner = TuneAxis([spvoigt], m1, signal_name=spvoigt.name)
+   tuner.width = 2.5
+   tuner.step_factor = tuner.num/2.5
+
+Reconfigure the *LiveTable* to also show the simulated detector
+signal.
+
+   live_table = LiveTable(["m1", "spvoigt"])
+
+
+Multi-pass tune
+===============
+
+Execute multiple passes to refine the centroid determination. Each
+subsequent pass will reduce the width of the next scan by
+"step_factor".
+
+   RE(tuner.multi_pass_tune(), live_table, md=md)
+
++-----------+------------+------------+------------+
+|   seq_num |       time |         m1 |    spvoigt |
++-----------+------------+------------+------------+
+|         1 | 00:33:33.6 |   -2.75000 |    282.864 |
+|         2 | 00:33:34.1 |   -2.47000 |    294.014 |
+|         3 | 00:33:34.6 |   -2.19000 |    317.637 |
+|         4 | 00:33:35.1 |   -1.92000 |    378.697 |
+|         5 | 00:33:35.6 |   -1.64000 |    672.979 |
+|         6 | 00:33:36.1 |   -1.36000 |  34670.358 |
+|         7 | 00:33:36.6 |   -1.08000 |    955.031 |
+|         8 | 00:33:37.1 |   -0.81000 |    419.441 |
+|         9 | 00:33:37.6 |   -0.53000 |    328.305 |
+|        10 | 00:33:38.1 |   -0.25000 |    298.470 |
++-----------+------------+------------+------------+
+generator TuneAxis.multi_pass_tune ['973d07fd'] (scan num: 2)
+
+
+PeakStats
+================ =================================
+key              result
+================ =================================
+x                m1
+y                spvoigt
+cen              -1.3594076832102968
+com              -1.367257432898917
+fwhm             0.2843975895677082
+min              [ -2.75       282.86449968]
+max              [-1.36000000e+00  3.46703584e+04]
+crossings        [-1.50160648 -1.21720889]
+tune_ok          True
+center           -1.3594076832102968
+initial_position -1.5
+final_position   -1.3594076832102968
+================ =================================
+
+
+
++-----------+------------+------------+------------+
+|   seq_num |       time |         m1 |    spvoigt |
++-----------+------------+------------+------------+
+|         1 | 00:33:40.3 |   -1.08000 |    955.031 |
+|         2 | 00:33:40.5 |   -1.14000 |   1472.376 |
+|         3 | 00:33:40.8 |   -1.20000 |   2875.401 |
+|         4 | 00:33:41.1 |   -1.27000 |  16626.547 |
+|         5 | 00:33:41.4 |   -1.33000 |  95075.221 |
+|         6 | 00:33:41.7 |   -1.39000 |   9717.986 |
+|         7 | 00:33:42.0 |   -1.45000 |   2740.795 |
+|         8 | 00:33:42.3 |   -1.52000 |   1315.395 |
+|         9 | 00:33:42.7 |   -1.58000 |    885.117 |
+|        10 | 00:33:43.0 |   -1.64000 |    672.979 |
++-----------+------------+------------+------------+
+generator TuneAxis.multi_pass_tune ['4c9af76b'] (scan num: 3)
+
+
+PeakStats
+================ =================================
+key              result
+================ =================================
+x                m1
+y                spvoigt
+cen              -1.3285390504163415
+com              -1.327930971864717
+fwhm             0.06927988898350734
+min              [ -1.64       672.97908343]
+max              [-1.33000000e+00  9.50752206e+04]
+crossings        [-1.29389911 -1.36317899]
+tune_ok          True
+center           -1.3285390504163415
+initial_position -1.36
+final_position   -1.3285390504163415
+================ =================================
+
+
+
++-----------+------------+------------+------------+
+|   seq_num |       time |         m1 |    spvoigt |
++-----------+------------+------------+------------+
+|         1 | 00:33:44.0 |   -1.40000 |   7051.436 |
+|         2 | 00:33:44.2 |   -1.38000 |  14353.903 |
+|         3 | 00:33:44.4 |   -1.37000 |  22222.839 |
+|         4 | 00:33:44.6 |   -1.35000 |  52516.186 |
+|         5 | 00:33:44.8 |   -1.34000 |  74805.966 |
+|         6 | 00:33:45.0 |   -1.32000 |  98976.619 |
+|         7 | 00:33:45.2 |   -1.31000 |  82625.135 |
+|         8 | 00:33:45.4 |   -1.29000 |  40194.994 |
+|         9 | 00:33:45.6 |   -1.28000 |  25930.433 |
+|        10 | 00:33:45.8 |   -1.26000 |  11033.875 |
++-----------+------------+------------+------------+
+generator TuneAxis.multi_pass_tune ['87e51c91'] (scan num: 4)
+
+
+PeakStats
+================ =================================
+key              result
+================ =================================
+x                m1
+y                spvoigt
+cen              -1.3229095343527337
+com              -1.322524379127855
+fwhm             0.053734231185460946
+min              [-1.40000000e+00  7.05143645e+03]
+max              [-1.32000000e+00  9.89766194e+04]
+crossings        [-1.34977665 -1.29604242]
+tune_ok          True
+center           -1.3229095343527337
+initial_position -1.33
+final_position   -1.3229095343527337
+================ =================================
+
+
+
++-----------+------------+------------+------------+
+|   seq_num |       time |         m1 |    spvoigt |
++-----------+------------+------------+------------+
+|         1 | 00:33:46.5 |   -1.27000 |  16626.547 |
+|         2 | 00:33:46.7 |   -1.28000 |  25930.433 |
+|         3 | 00:33:46.9 |   -1.29000 |  40194.994 |
+|         4 | 00:33:47.1 |   -1.30000 |  59839.071 |
+|         5 | 00:33:47.3 |   -1.31000 |  82625.135 |
+|         6 | 00:33:47.5 |   -1.33000 |  95075.221 |
+|         7 | 00:33:47.7 |   -1.34000 |  74805.966 |
+|         8 | 00:33:47.9 |   -1.35000 |  52516.186 |
+|         9 | 00:33:48.1 |   -1.36000 |  34670.358 |
+|        10 | 00:33:48.3 |   -1.37000 |  22222.839 |
++-----------+------------+------------+------------+
+generator TuneAxis.multi_pass_tune ['4727cff7'] (scan num: 5)
+
+
+PeakStats
+================ =================================
+key              result
+================ =================================
+x                m1
+y                spvoigt
+cen              -1.3232368550566802
+com              -1.324568875024918
+fwhm             0.050534157776581434
+min              [-1.27000000e+00  1.66265473e+04]
+max              [-1.33000000e+00  9.50752206e+04]
+crossings        [-1.29796978 -1.34850393]
+tune_ok          True
+center           -1.3232368550566802
+initial_position -1.32
+final_position   -1.3232368550566802
+================ =================================
+
+('973d07fd-c9eb-46fe-91f9-8f5c91e2a8f9',
+ '4c9af76b-4c24-453a-bfab-4a25ad93f5de',
+ '87e51c91-7865-4d53-aade-cd83a702b704',
+ '4727cff7-8811-4ac4-9ae5-4a4f81c0d8f5')
+
+Show the results from the multi-pass tuning.
+
+   print("final: ", tuner.center)
+   print("max", tuner.peaks.max)
+   print("min", tuner.peaks.min)
+   for stat in tuner.stats:
+       print("--", stat.cen, stat.fwhm)
+   print(f"{m1.position=}  det={spvoigt.get()}")
+
+final:  -1.3232368550566802
+max (-1.33, 95075.22058003367)
+min (-1.27, 16626.54728728527)
+-- Signal(name='PeakStats_cen', parent='PeakStats', value=-1.3594076832102968, timestamp=1657085618.1954212) Signal(name='PeakStats_fwhm', parent='PeakStats', value=0.2843975895677082, timestamp=1657085618.195451)
+-- Signal(name='PeakStats_cen', parent='PeakStats', value=-1.3285390504163415, timestamp=1657085623.0134842) Signal(name='PeakStats_fwhm', parent='PeakStats', value=0.06927988898350734, timestamp=1657085623.0135126)
+-- Signal(name='PeakStats_cen', parent='PeakStats', value=-1.3229095343527337, timestamp=1657085625.8175142) Signal(name='PeakStats_fwhm', parent='PeakStats', value=0.053734231185460946, timestamp=1657085625.8175213)
+-- Signal(name='PeakStats_cen', parent='PeakStats', value=-1.3232368550566802, timestamp=1657085628.3260303) Signal(name='PeakStats_fwhm', parent='PeakStats', value=0.050534157776581434, timestamp=1657085628.326058)
+m1.position=-1.32  det=22222.839021509993
+
+Compare the final position (just printed) with the expected value
+shown a couple steps back.
+
+
+Single-pass tune
+================
+
+Repeat but with only one pass. Reset the motor to the starting
+position and increase the number of steps by a factor of three.
+
+   m1.move(starting_position)
+   tuner.num *= 3
+   RE(tuner.tune(), live_table, md=md)
+
++-----------+------------+------------+------------+
+|   seq_num |       time |         m1 |    spvoigt |
++-----------+------------+------------+------------+
+|         1 | 00:33:50.6 |   -2.75000 |    282.864 |
+|         2 | 00:33:50.9 |   -2.66000 |    285.697 |
+|         3 | 00:33:51.2 |   -2.58000 |    288.742 |
+|         4 | 00:33:51.5 |   -2.49000 |    292.943 |
+|         5 | 00:33:51.8 |   -2.41000 |    297.586 |
+|         6 | 00:33:52.1 |   -2.32000 |    304.203 |
+|         7 | 00:33:52.4 |   -2.23000 |    312.884 |
+|         8 | 00:33:52.7 |   -2.15000 |    323.095 |
+|         9 | 00:33:53.0 |   -2.06000 |    338.783 |
+|        10 | 00:33:53.3 |   -1.97000 |    361.453 |
+|        11 | 00:33:53.6 |   -1.89000 |    391.297 |
+|        12 | 00:33:53.9 |   -1.80000 |    444.359 |
+|        13 | 00:33:54.2 |   -1.72000 |    524.755 |
+|        14 | 00:33:54.5 |   -1.63000 |    699.989 |
+|        15 | 00:33:54.8 |   -1.54000 |   1132.632 |
+|        16 | 00:33:55.1 |   -1.46000 |   2403.413 |
+|        17 | 00:33:55.4 |   -1.37000 |  22222.839 |
+|        18 | 00:33:55.7 |   -1.28000 |  25930.433 |
+|        19 | 00:33:56.0 |   -1.20000 |   2875.401 |
+|        20 | 00:33:56.3 |   -1.11000 |   1160.534 |
+|        21 | 00:33:56.6 |   -1.03000 |    740.694 |
+|        22 | 00:33:56.9 |   -0.94000 |    543.387 |
+|        23 | 00:33:57.2 |   -0.85000 |    447.006 |
+|        24 | 00:33:57.5 |   -0.77000 |    397.617 |
+|        25 | 00:33:57.8 |   -0.68000 |    362.513 |
+|        26 | 00:33:58.1 |   -0.59000 |    339.500 |
+|        27 | 00:33:58.4 |   -0.51000 |    325.112 |
+|        28 | 00:33:58.7 |   -0.42000 |    313.268 |
+|        29 | 00:33:59.0 |   -0.34000 |    305.350 |
+|        30 | 00:33:59.3 |   -0.25000 |    298.470 |
++-----------+------------+------------+------------+
+generator TuneAxis.tune ['8ee3fd77'] (scan num: 6)
+
+
+PeakStats
+================ =================================
+key              result
+================ =================================
+x                m1
+y                spvoigt
+cen              -1.3234493073606397
+com              -1.3447636766612034
+fwhm             0.17589460960483438
+min              [ -2.75       282.86449968]
+max              [-1.28000000e+00  2.59304333e+04]
+crossings        [-1.41139661 -1.235502  ]
+tune_ok          True
+center           -1.3234493073606397
+initial_position -1.5
+final_position   -1.3234493073606397
+================ =================================
+
+('8ee3fd77-5217-4b5c-8e00-65b694c9e83a',)
+
+Compare the single-pass scan with the previous multi-pass scan. Each
+used the same number of points overall.
+
+The results are comparable but we already knew the position of the
+peak approximately.
+
+   print("final: ", tuner.center)
+   print("max", tuner.peaks.max)
+   print("min", tuner.peaks.min)
+   print("centroid", tuner.peaks.cen)
+   print("FWHM", tuner.peaks.fwhm)
+   print(f"{m1.position=}  det={spvoigt.get()}")
+
+final:  -1.3234493073606397
+max (-1.28, 25930.433258016637)
+min (-2.75, 282.86449968250383)
+centroid -1.3234493073606397
+FWHM 0.17589460960483438
+m1.position=-1.32  det=298.47011500137876

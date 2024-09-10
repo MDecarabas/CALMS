@@ -1,0 +1,86 @@
+synApps epid record
+*******************
+
+The "epid" record is part of the "std" module:
+https://epics.anl.gov/bcda/synApps/std/epidRecord.html
+
+The "fb_epid" database is part of the "optics" module:
+https://github.com/epics-
+modules/optics/blob/master/opticsApp/Db/fb_epid.db
+
+Ophyd support for the EPICS epid record
+
+Public Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "EpidReco  | EPICS synApps epid record support in ophyd                                                 |
+| rd"(*args, |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "Fb_EpidD  | EPICS synApps optics fb_epid database support in ophyd.                                    |
+| atabase"(  |                                                                                            |
+| *args,     |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+| "Fb_EpidD  | Heater simulator in EPICS synApps optics fb_epid database.                                 |
+| atabaseHe  |                                                                                            |
+| aterSimul  |                                                                                            |
+| ator"(*ar  |                                                                                            |
+| gs,        |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+see:
+   https://epics.anl.gov/bcda/synApps/std/epidRecord.html
+
+see:
+   https://github.com/epics-
+   modules/optics/blob/master/opticsApp/Db/fb_epid.db
+
+Note:
+
+  Keep in mind a bug report suggests an update to this database.
+  (https://github.com/epics-modules/optics/issues/10)
+
+class apstools.synApps.epid.EpidRecord(*args: Any, **kwargs: Any)
+
+   EPICS synApps epid record support in ophyd
+
+   See:
+      https://epics.anl.gov/bcda/synApps/std/epidRecord.html
+
+class apstools.synApps.epid.Fb_EpidDatabase(*args: Any, **kwargs: Any)
+
+   EPICS synApps optics fb_epid database support in ophyd.
+
+   enable_calc
+
+      alias of "SwaitRecord"
+
+   in_calc
+
+      alias of "SwaitRecord"
+
+   obuf_calc
+
+      alias of "SwaitRecord"
+
+   out_calc
+
+      alias of "SwaitRecord"
+
+   outpv
+
+      alias of "SseqRecord"
+
+   resume_calc
+
+      alias of "SwaitRecord"
+
+class apstools.synApps.epid.Fb_EpidDatabaseHeaterSimulator(*args: Any, **kwargs: Any)
+
+   Heater simulator in EPICS synApps optics fb_epid database.
+
+   sim_calc
+
+      alias of "SwaitRecord"

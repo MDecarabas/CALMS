@@ -1,0 +1,930 @@
+What are the objects to control?
+********************************
+
+A user requests a tool to describe all objects (and children) for
+control. In Bluesky, these objects are either a single "Signal" or a
+"Device" (a nested structure of "Device" and "Signal" objects).
+
+There are several tools available to learn what the control system
+provides. Because the control system may provide access to dozens,
+hundreds, or even thousands of control objects, there are several
+tools, depending on the detail sought. For example, a single motor
+control (of class "EpicsMotor") provides access to ~20 signals.
+
+**SUGGESTION**
+
+1. Use "listobjects()" to get the "Device" and "Signal" objects for
+   control.
+
+2. Use "listdevice(OBJECT)" to learn more about a specific "Device" or
+   "Signal" object.
+
+3. Use "listplans()" to learn the plans available for control.
+
+4. Use "findCatalogsInNamespace()" to learn the available databroker
+   catalogs.
+
+5. Use "DEVICE.summary()" and "DEVICE.component_names" to learn more
+   about "DEVICE".
+
+**OVERVIEW**
+
+This guide describes these tools to learn more about your Bluesky
+control system:
+
+* "apstools.utils.listobjects()": list of top-level objects available
+  at the command line.
+
+* "apstools.utils.listdevice()": internal objects of a single object.
+
+* Every "Device" has a ".component_names" list of its ophyd "Device"
+  and "Signal" children.
+
+* Every "Device" has a ".summary()" method that summarizes the
+  device’s internal objects.
+
+* The command-line (only) magic: "%wa" prints tables of ophyd-labeled
+  "Signal" objects.
+
+* "apstools.utils.listplans()": list of top-level bluesky plans
+  available at the command line.
+
+* "apstools.utils.findCatalogsInNamespace()": Returns a dictionary
+  with the databroker catalogs available at the command line.
+
+**For SPEC Users**
+
+For those with experience using the SPEC software, this comparison
+table may be of assistance in learning the command-line tools
+available in Bluesky:
+
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| SPEC                                                                                                                                                                  | Bluesky                                                                                                                                                               | comments                                                                                                                                                              |
+|=======================================================================================================================================================================|=======================================================================================================================================================================|=======================================================================================================================================================================|
+| "wa"                                                                                                                                                                  | "%wa motor"                                                                                                                                                           | Show all the motors and their positions, limits, etc.                                                                                                                 |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| -n/a-                                                                                                                                                                 | "listobjects()"                                                                                                                                                       | List all the controllable devices (the ones known at the command-line level).                                                                                         |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| "lsdef"                                                                                                                                                               | "listplans()"                                                                                                                                                         | List all the bluesky plans (the ones known at the command-line level).                                                                                                |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| -n/a-                                                                                                                                                                 | "PLAN?"                                                                                                                                                               | Show the documentation of the Bluesky plan. Works with other Python objects, too.                                                                                     |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| "prdef MACRO"                                                                                                                                                         | "PLAN??"                                                                                                                                                              | Show the source code of the SPEC macro or Bluesky plan. Works with other Python objects, too.                                                                         |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| "qdo FILE.mac"                                                                                                                                                        | "%run -i FILE.py"                                                                                                                                                     | Run the definitions and commands provided in the file.                                                                                                                |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| "u UNIX_CMD"                                                                                                                                                          | "!UNIX_CMD"                                                                                                                                                           | Run a command in the (UNIX) shell.                                                                                                                                    |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+**Start local control system**
+
+Start a Bluesky control system to demonstrate these functions. We’ll
+start the bluesky training instrument in the same way as the other
+How-to guides here.
+
+   import pathlib
+   import sys
+
+   sys.path.append(str(pathlib.Path().home() / "bluesky"))
+   from instrument.collection import *
+
+/home/prjemian/bluesky/instrument/_iconfig.py
+Activating auto-logging. Current session state plus future input saved.
+Filename       : /home/prjemian/Documents/projects/BCDA-APS/apstools/docs/source/examples/.logs/ipython_console.log
+Mode           : rotate
+Output logging : True
+Raw input log  : False
+Timestamping   : True
+State          : active
+
+I Mon-15:49:17 - ############################################################ startup
+I Mon-15:49:17 - logging started
+I Mon-15:49:17 - logging level = 10
+I Mon-15:49:17 - /home/prjemian/bluesky/instrument/session_logs.py
+I Mon-15:49:17 - /home/prjemian/bluesky/instrument/collection.py
+I Mon-15:49:17 - CONDA_PREFIX = /home/prjemian/.conda/envs/bluesky_2024_2
+
+Exception reporting mode: Minimal
+
+I Mon-15:49:17 - xmode exception level: 'Minimal'
+I Mon-15:49:17 - /home/prjemian/bluesky/instrument/mpl/notebook.py
+I Mon-15:49:17 - #### Bluesky Framework ####
+I Mon-15:49:17 - /home/prjemian/bluesky/instrument/framework/check_python.py
+I Mon-15:49:17 - /home/prjemian/bluesky/instrument/framework/check_bluesky.py
+I Mon-15:49:17 - /home/prjemian/bluesky/instrument/framework/initialize.py
+I Mon-15:49:17 - RunEngine metadata saved in directory: /home/prjemian/.config/Bluesky_RunEngine_md
+I Mon-15:49:18 - using databroker catalog 'training'
+I Mon-15:49:18 - using ophyd control layer: pyepics
+I Mon-15:49:18 - Using EPICS PV gp:gp:int20 for scan_id
+I Mon-15:49:18 - /home/prjemian/bluesky/instrument/framework/metadata.py
+I Mon-15:49:18 - #### Devices ####
+I Mon-15:49:18 - /home/prjemian/bluesky/instrument/devices/area_detector.py
+I Mon-15:49:18 - /home/prjemian/bluesky/instrument/devices/calculation_records.py
+I Mon-15:49:24 - /home/prjemian/bluesky/instrument/devices/fourc_diffractometer.py
+I Mon-15:49:24 - /home/prjemian/bluesky/instrument/devices/ioc_stats.py
+I Mon-15:49:24 - /home/prjemian/bluesky/instrument/devices/kohzu_monochromator.py
+I Mon-15:49:24 - /home/prjemian/bluesky/instrument/devices/motors.py
+I Mon-15:49:24 - /home/prjemian/bluesky/instrument/devices/noisy_detector.py
+I Mon-15:49:25 - /home/prjemian/bluesky/instrument/devices/scaler.py
+I Mon-15:49:26 - /home/prjemian/bluesky/instrument/devices/shutter_simulator.py
+I Mon-15:49:26 - /home/prjemian/bluesky/instrument/devices/simulated_fourc.py
+I Mon-15:49:26 - /home/prjemian/bluesky/instrument/devices/simulated_kappa.py
+I Mon-15:49:26 - /home/prjemian/bluesky/instrument/devices/slits.py
+I Mon-15:49:26 - /home/prjemian/bluesky/instrument/devices/sixc_diffractometer.py
+I Mon-15:49:26 - /home/prjemian/bluesky/instrument/devices/temperature_signal.py
+I Mon-15:49:26 - #### Callbacks ####
+I Mon-15:49:26 - /home/prjemian/bluesky/instrument/callbacks/spec_data_file_writer.py
+I Mon-15:49:27 - #### Plans ####
+I Mon-15:49:27 - /home/prjemian/bluesky/instrument/plans/lup_plan.py
+I Mon-15:49:27 - /home/prjemian/bluesky/instrument/plans/peak_finder_example.py
+I Mon-15:49:27 - /home/prjemian/bluesky/instrument/utils/image_analysis.py
+I Mon-15:49:27 - /home/prjemian/bluesky/instrument/plans/randomize_noisy_peak_plan.py
+I Mon-15:49:27 - #### Utilities ####
+I Mon-15:49:27 - writing to SPEC file: /home/prjemian/Documents/projects/BCDA-APS/apstools/docs/source/examples/20240708-154926.dat
+I Mon-15:49:27 -    >>>>   Using default SPEC file name   <<<<
+I Mon-15:49:27 -    file will be created when bluesky ends its next scan
+I Mon-15:49:27 -    to change SPEC file, use command:   newSpecFile('title')
+I Mon-15:49:27 - #### Startup is complete. ####
+
+
+"listobjects()" function
+========================
+
+**Q**: What are the objects available for control?
+
+**A**: "listobjects()" lists all the "Device" and "Signal"
+(technically, all "ophyd.ophydobj.OphydObject") objects at the
+command-line level.
+
+Let’s demonstrate:
+
+   from apstools.utils import listobjects
+   listobjects()
+
+============= ================================ ============== ===================
+name          class                            PV (or prefix) label(s)
+============= ================================ ============== ===================
+I0            EpicsSignalRO                    gp:scaler1.S2  channel counter
+I00           EpicsSignalRO                    gp:scaler1.S6  channel counter
+I000          EpicsSignalRO                    gp:scaler1.S5  channel counter
+adsimdet      SimDetector                      ad:            area_detector
+adsimk        SimDetector                      kad:           area_detector
+dcm           MyKohzu                          gp:
+diode         EpicsSignalRO                    gp:scaler1.S4  channel counter
+fourc         FourCircle                       gp:
+gp_stats      IocInfoDevice                    gp:
+m1            MyEpicsMotor                     gp:m1          motor
+m10           MyEpicsMotor                     gp:m10         motor
+m11           MyEpicsMotor                     gp:m11         motor
+m12           MyEpicsMotor                     gp:m12         motor
+m13           MyEpicsMotor                     gp:m13         motor
+m14           MyEpicsMotor                     gp:m14         motor
+m15           MyEpicsMotor                     gp:m15         motor
+m16           MyEpicsMotor                     gp:m16         motor
+m2            MyEpicsMotor                     gp:m2          motor
+m3            MyEpicsMotor                     gp:m3          motor
+m4            MyEpicsMotor                     gp:m4          motor
+m7            MyEpicsMotor                     gp:m7          motor
+m8            MyEpicsMotor                     gp:m8          motor
+m9            MyEpicsMotor                     gp:m9          motor
+noisy         EpicsSignalRO                    gp:userCalc1   simulator detectors
+scaler1       ScalerCH                         gp:scaler1     scalers detectors
+scint         EpicsSignalRO                    gp:scaler1.S3  channel counter
+shutter       SimulatedApsPssShutterWithStatus                shutters
+sim4c         SimulatedE4CV
+simk4c        SimulatedK4CV
+simk6c        SimulatedK6C
+sixc          SixCircle                        gp:
+slit1         Optics2Slit2D_HV                 gp:Slit1
+temperature   MyPvPositioner                   gp:userCalc8
+timebase      EpicsSignalRO                    gp:scaler1.S1  channel counter
+user_calcouts UserCalcoutDevice                gp:
+user_calcs    UserCalcsDevice                  gp:
+user_sseqs    UserStringSequenceDevice         gp:
+============= ================================ ============== ===================
+
+The "listobjects()" function has options, specified as keyword
+arguments. To learn more, ask IPython for help, using "listobjects?":
+
+   listobjects?
+
+[0;31mSignature:[0m
+[0mlistobjects[0m[0;34m([0m[0;34m[0m
+[0;34m[0m    [0mshow_pv[0m[0;34m=[0m[0;32mTrue[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mprinting[0m[0;34m=[0m[0;32mNone[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mverbose[0m[0;34m=[0m[0;32mFalse[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0msymbols[0m[0;34m=[0m[0;32mNone[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mchild_devices[0m[0;34m=[0m[0;32mFalse[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mchild_signals[0m[0;34m=[0m[0;32mFalse[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mtable_style[0m[0;34m=[0m[0;34m<[0m[0mTableStyle[0m[0;34m.[0m[0mpyRestTable[0m[0;34m:[0m [0;34m<[0m[0;32mclass[0m [0;34m'apstools.utils._core.PRT_Table'[0m[0;34m>>[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m[0;34m)[0m[0;34m[0m[0;34m[0m[0m
+[0;31mDocstring:[0m
+Show all the ophyd Signal and Device objects defined as globals.
+
+PARAMETERS
+
+show_pv
+    *bool* :
+    If True, also show relevant EPICS PV, if available.
+    (default: True)
+printing *bool* :
+    Deprecated.
+verbose
+    *bool* :
+    If True, also show ``str(obj``.
+    (default: False)
+symbols
+    *dict* :
+    If None, use global symbol table.
+    If not None, use provided dictionary.
+    (default: ``globals()``)
+child_devices
+    *bool* :
+    If True, also show how many Devices are children of this device.
+    (default: False)
+child_signals
+    *bool* :
+    If True, also show how many Signals are children of this device.
+    (default: False)
+table_style *object* :
+    Either ``apstools.utils.TableStyle.pandas`` (default) or
+    using values from :class:`apstools.utils.TableStyle`.
+
+    .. note:: ``pandas.DataFrame`` wll truncate long text
+       to at most 50 characters.
+
+RETURNS
+
+object:
+    Instance of ``pyRestTable.Table()``
+
+EXAMPLE::
+
+    In [1]: listobjects()
+    ======== ================================ =============
+    name     ophyd structure                  EPICS PV
+    ======== ================================ =============
+    adsimdet MySingleTriggerSimDetector       vm7SIM1:
+    m1       EpicsMotor                       vm7:m1
+    m2       EpicsMotor                       vm7:m2
+    m3       EpicsMotor                       vm7:m3
+    m4       EpicsMotor                       vm7:m4
+    m5       EpicsMotor                       vm7:m5
+    m6       EpicsMotor                       vm7:m6
+    m7       EpicsMotor                       vm7:m7
+    m8       EpicsMotor                       vm7:m8
+    noisy    EpicsSignalRO                    vm7:userCalc1
+    scaler   ScalerCH                         vm7:scaler1
+    shutter  SimulatedApsPssShutterWithStatus
+    ======== ================================ =============
+
+    Out[1]: <pyRestTable.rest_table.Table at 0x7fa4398c7cf8>
+
+    In [2]:
+
+(new in apstools release 1.1.8)
+[0;31mFile:[0m      ~/.conda/envs/bluesky_2024_2/lib/python3.11/site-packages/apstools/utils/misc.py
+[0;31mType:[0m      function
+
+
+"listdevice()" function
+=======================
+
+Once a specific "Device" or "Signal" object has been identified, use
+"listdevice(OBJECT)" to report about its internal controls.
+
+Let’s demonstrate with a couple devices from the above table. The
+"noisy" object is a "EpicsSignalRO" (a read-only "Signal" which
+connects with an EPICS PV). It has no internals structure, just a
+time-stamped value.
+
+   from apstools.utils import listdevice
+   listdevice(noisy)
+
+========= ================== ==========================
+data name value              timestamp
+========= ================== ==========================
+noisy     11513.796622133092 2024-07-08 15:49:25.180968
+========= ================== ==========================
+
+The "temperature" object is a "MyPvPositioner" which uses a
+calculation record to simulate a temperature controller.
+
+   listdevice(temperature)
+
+=============================== =================================== ==========================
+data name                       value                               timestamp
+=============================== =================================== ==========================
+temperature                     25.013054093232626                  2024-07-08 15:49:26.533470
+temperature_setpoint            25.0                                2024-07-08 15:49:26.344567
+temperature_done                True                                2024-07-08 15:49:26.541581
+temperature_calculation         A+max(-D,min(D,(B-A)))+C*(RNDM-0.5) 2024-07-08 15:49:26.347289
+temperature_description         temperature                         2024-07-08 15:49:26.343089
+temperature_max_change          2.0                                 2024-07-08 15:49:26.346818
+temperature_noise               1.0                                 2024-07-08 15:49:26.346368
+temperature_previous_value_pv   gp:userCalc8.VAL                    2024-07-08 15:49:26.343089
+temperature_scanning_rate       5                                   2024-07-08 15:49:26.347289
+temperature_tolerance           1.0                                 2024-07-08 15:49:26.347289
+temperature_report_dmov_changes False                               2024-07-08 15:49:26.343873
+=============================== =================================== ==========================
+
+The "fourc" object is a "FourCircle" diffractometer with various
+internal controls. One of the controls is the "fourc.omega" motor,
+connected to EPICS as "EpicsMotor". This is its internal controls
+object structure.
+
+   listdevice(fourc.omega)
+
+================================ ======= ==========================
+data name                        value   timestamp
+================================ ======= ==========================
+fourc_omega                      0.0     2024-07-08 15:45:24.601966
+fourc_omega_user_setpoint        0.0     2024-07-08 15:45:24.601966
+fourc_omega_user_offset          0.0     2024-07-08 15:45:24.601966
+fourc_omega_user_offset_dir      0       2024-07-08 15:45:24.601966
+fourc_omega_offset_freeze_switch 0       2024-07-08 15:45:24.601966
+fourc_omega_set_use_switch       0       2024-07-08 15:45:24.601966
+fourc_omega_velocity             1.0     2024-07-08 15:45:24.601966
+fourc_omega_acceleration         0.2     2024-07-08 15:45:24.601966
+fourc_omega_motor_egu            degrees 2024-07-08 15:45:24.601966
+fourc_omega_motor_is_moving      0       2024-07-08 15:45:24.601966
+fourc_omega_motor_done_move      1       2024-07-08 15:45:24.601966
+fourc_omega_high_limit_switch    0       2024-07-08 15:45:24.601966
+fourc_omega_low_limit_switch     0       2024-07-08 15:45:24.601966
+fourc_omega_high_limit_travel    1000.0  2024-07-08 15:45:24.601966
+fourc_omega_low_limit_travel     -1000.0 2024-07-08 15:45:24.601966
+fourc_omega_direction_of_travel  0       2024-07-08 15:45:24.601966
+fourc_omega_motor_stop           0       2024-07-08 15:45:24.601966
+fourc_omega_home_forward         0       2024-07-08 15:45:24.601966
+fourc_omega_home_reverse         0       2024-07-08 15:45:24.601966
+================================ ======= ==========================
+
+This instrument uses a simulated shutter. Show its internal structure:
+
+   listdevice(shutter)
+
+==================== ===== ==========================
+data name            value timestamp
+==================== ===== ==========================
+shutter_busy         False 2024-07-08 15:49:26.129390
+shutter_open_signal  0     2024-07-08 15:49:26.129409
+shutter_close_signal 0     2024-07-08 15:49:26.129429
+shutter_pss_state    close 2024-07-08 15:49:26.129442
+==================== ===== ==========================
+
+One of the calculation records uses the readback value of a motor:
+
+   listdevice(user_calcs.calc1.channels.A)
+
+========================================= ========= ==========================
+data name                                 value     timestamp
+========================================= ========= ==========================
+user_calcs_calc1_channels_A_input_value   0.0       2024-07-08 15:49:25.123935
+user_calcs_calc1_channels_A_input_pv      gp:m1.RBV 2024-07-08 15:49:25.160628
+user_calcs_calc1_channels_A_input_trigger 1         2024-07-08 15:49:25.142936
+========================================= ========= ==========================
+
+The "listdevice()" function has options, specified as keyword
+arguments. To learn more, ask IPython for help, using "listdevice?":
+
+   listdevice?
+
+[0;31mSignature:[0m
+[0mlistdevice[0m[0;34m([0m[0;34m[0m
+[0;34m[0m    [0mobj[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mscope[0m[0;34m=[0m[0;32mNone[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mcname[0m[0;34m=[0m[0;32mFalse[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mdname[0m[0;34m=[0m[0;32mTrue[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mshow_pv[0m[0;34m=[0m[0;32mFalse[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0muse_datetime[0m[0;34m=[0m[0;32mTrue[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mshow_ancient[0m[0;34m=[0m[0;32mTrue[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mmax_column_width[0m[0;34m=[0m[0;32mNone[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0mtable_style[0m[0;34m=[0m[0;34m<[0m[0mTableStyle[0m[0;34m.[0m[0mpyRestTable[0m[0;34m:[0m [0;34m<[0m[0;32mclass[0m [0;34m'apstools.utils._core.PRT_Table'[0m[0;34m>>[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m    [0m_call_args[0m[0;34m=[0m[0;32mNone[0m[0;34m,[0m[0;34m[0m
+[0;34m[0m[0;34m)[0m[0;34m[0m[0;34m[0m[0m
+[0;31mDocstring:[0m
+Describe the signal information from device ``obj`` in a pandas DataFrame.
+
+Look through all subcomponents to find all the signals to be
+shown. Components that are disconnected will be skipped and a
+warning logged.
+
+PARAMETERS
+
+obj
+    *object* : Instance of ophyd Signal or Device.
+scope
+    *str* or None : Scope of content to be shown.
+
+    - ``"full"`` (or ``None``) shows all Signal components
+    - ``"epics"`` shows only EPICS-based Signals
+    - ``"read"`` shows only the signals returned by ``obj.read()``
+
+    default: ``None``
+cname
+    *bool* : Show the _control_ (Python, dotted) name in column ``name``.
+
+    default: ``False``
+dname
+    *bool* : Show the _data_ (databroker, with underlines) name in
+    column ``data name``.
+
+    default: ``True``
+show_pv
+    *bool* : Show the EPICS process variable (PV) name in
+    column ``PV``.
+
+    default: ``False``
+
+    .. note:: Special case when ``show_pv=True``:
+       If ``cname`` is not provided, it will be set ``True``.
+       If ``dname`` is not provided, it will be set ``False``.
+
+use_datetime *bool* :
+    Show the EPICS timestamp (time of last update) in
+    column ``timestamp``.
+
+    default: ``True``
+show_ancient *bool* :
+    Show uninitialized EPICS process variables.
+
+    In EPICS, an uninitialized PV has a timestamp of 1990-01-01 UTC.
+    This option enables or suppresses ancient values identified
+    by timestamp from 1989.  These are values only defined in
+    the original ``.db`` file.
+
+    default: ``True``
+max_column_width *int* or *None* :
+    Truncate long columns to no more than this length.  If not default,
+    then table will be formatted using pyRestTable.
+
+    default: ``None`` (will use ``50``)
+table_style *object* :
+    Either ``apstools.utils.TableStyle.pandas`` (default) or
+    using values from :class:`apstools.utils.TableStyle`.
+
+    .. note:: ``pandas.DataFrame`` wll truncate long text
+       to at most 50 characters.
+[0;31mFile:[0m      ~/.conda/envs/bluesky_2024_2/lib/python3.11/site-packages/apstools/utils/device_info.py
+[0;31mType:[0m      function
+
+
+".component_names" method
+=========================
+
+Every object using "ophyd.Device" (or a subclass) has a
+.component_names list of its ophyd children. (Note: a "Signal" does
+not have a ".component_names" list.)
+
+For example, this lists the ".component_names" of one of the
+calculation (EPICS "swait" record) channels:
+
+   user_calcs.calc1.channels.A.component_names
+
+('input_value', 'input_pv', 'input_trigger')
+
+The calculation object has three children:
+
+* "user_calcs.calc1.channels.A.input_value"
+
+* "user_calcs.calc1.channels.A.input_pv"
+
+* "user_calcs.calc1.channels.A.input_trigger"
+
+
+".summary()" method
+===================
+
+Every object using "ophyd.Device" (or a subclass) has a .summary()
+method to describe its internal structure. (Note: a "Signal" does not
+have a ".summary()" method.)
+
+The report is divided into sections:
+
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| section                                                                                                                                                                                                                                                   | description                                                                                                                                                                                                                                               |
+|===========================================================================================================================================================================================================================================================|===========================================================================================================================================================================================================================================================|
+| data keys (* hints)                                                                                                                                                                                                                                       | Names (undotted) of children (as they appear in the databroker) of data.                                                                                                                                                                                  |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| config keys                                                                                                                                                                                                                                               | Data keys (undotted) in the dictionary returned by the ".read_configuration()" method.                                                                                                                                                                    |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| configuration attrs                                                                                                                                                                                                                                       | List of child (dotted) object names to be reported by the ".read_configuration()" method.                                                                                                                                                                 |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| read attrs                                                                                                                                                                                                                                                | List of child (dotted) object names to be reported by the ".read()" method.                                                                                                                                                                               |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| unused attrs                                                                                                                                                                                                                                              | Data keys (undotted) not used by either ".read()" or ".read_configuration()".                                                                                                                                                                             |
++-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+For example, this is a summary of one of the calculation (EPICS
+"swait" record) channels:
+
+   user_calcs.calc1.channels.A.summary()
+
+data keys (* hints)
+-------------------
+
+read attrs
+----------
+input_value          EpicsSignal         ('user_calcs_calc1_channels_A_input_value')
+
+config keys
+-----------
+user_calcs_calc1_channels_A_input_pv
+user_calcs_calc1_channels_A_input_trigger
+user_calcs_calc1_channels_A_input_value
+
+configuration attrs
+-------------------
+input_value          EpicsSignal         ('user_calcs_calc1_channels_A_input_value')
+input_pv             EpicsSignal         ('user_calcs_calc1_channels_A_input_pv')
+input_trigger        EpicsSignal         ('user_calcs_calc1_channels_A_input_trigger')
+
+unused attrs
+------------
+
+The content of the ".summary()" method increases with the complexity
+of the device. Such as the "fourc.omega" motor:
+
+   fourc.omega.summary()
+
+data keys (* hints)
+-------------------
+*fourc_omega
+ fourc_omega_user_setpoint
+
+read attrs
+----------
+user_readback        EpicsSignalRO       ('fourc_omega')
+user_setpoint        EpicsSignal         ('fourc_omega_user_setpoint')
+
+config keys
+-----------
+fourc_omega_acceleration
+
+configuration attrs
+-------------------
+acceleration         EpicsSignal         ('fourc_omega_acceleration')
+
+unused attrs
+------------
+user_offset          EpicsSignal         ('fourc_omega_user_offset')
+user_offset_dir      EpicsSignal         ('fourc_omega_user_offset_dir')
+offset_freeze_switch EpicsSignal         ('fourc_omega_offset_freeze_switch')
+set_use_switch       EpicsSignal         ('fourc_omega_set_use_switch')
+velocity             EpicsSignal         ('fourc_omega_velocity')
+motor_egu            EpicsSignal         ('fourc_omega_motor_egu')
+motor_is_moving      EpicsSignalRO       ('fourc_omega_motor_is_moving')
+motor_done_move      EpicsSignalRO       ('fourc_omega_motor_done_move')
+high_limit_switch    EpicsSignalRO       ('fourc_omega_high_limit_switch')
+low_limit_switch     EpicsSignalRO       ('fourc_omega_low_limit_switch')
+high_limit_travel    EpicsSignal         ('fourc_omega_high_limit_travel')
+low_limit_travel     EpicsSignal         ('fourc_omega_low_limit_travel')
+direction_of_travel  EpicsSignal         ('fourc_omega_direction_of_travel')
+motor_stop           EpicsSignal         ('fourc_omega_motor_stop')
+home_forward         EpicsSignal         ('fourc_omega_home_forward')
+home_reverse         EpicsSignal         ('fourc_omega_home_reverse')
+
+
+"%wa" magic command
+===================
+
+"%wa" is a magic command which means it is only available in console
+or notebook sessions.
+
+First, we show how to list the objects labeled ""motor"" (singular by
+bluesky convention), since that is exactly what the SPEC "wa" command
+lists:
+
+   %wa motor
+
+motor
+  Positioner                     Value       Low Limit   High Limit  Offset
+  dcm_m_theta                    0.0         -1000.0     1000.0      0.0
+  dcm_m_y                        0.0         -1000.0     1000.0      0.0
+  dcm_m_z                        0.0         -1000.0     1000.0      0.0
+  fourc_chi                      0.0         -1000.0     1000.0      0.0
+  fourc_omega                    0.0         -1000.0     1000.0      0.0
+  fourc_phi                      0.0         -1000.0     1000.0      0.0
+  fourc_tth                      0.0         -1000.0     1000.0      0.0
+  m1                             0.0         -1000.0     1000.0      0.0
+  m10                            0.0         -1000.0     1000.0      0.0
+  m11                            0.0         -1000.0     1000.0      0.0
+  m12                            0.0         -1000.0     1000.0      0.0
+  m13                            0.0         -1000.0     1000.0      0.0
+  m14                            0.0         -1000.0     1000.0      0.0
+  m15                            0.0         -1000.0     1000.0      0.0
+  m16                            0.0         -1000.0     1000.0      0.0
+  m2                             0.0         -1000.0     1000.0      0.0
+  m3                             0.0         -1000.0     1000.0      0.0
+  m4                             0.0         -1000.0     1000.0      0.0
+  m7                             0.0         -1000.0     1000.0      0.0
+  m8                             0.0         -1000.0     1000.0      0.0
+  m9                             0.0         -1000.0     1000.0      0.0
+  sixc_chi                       0.0         -1000.0     1000.0      0.0
+  sixc_delta                     0.0         -1000.0     1000.0      0.0
+  sixc_gamma                     0.0         -1000.0     1000.0      0.0
+  sixc_mu                        0.0         -1000.0     1000.0      0.0
+  sixc_omega                     0.0         -1000.0     1000.0      0.0
+  sixc_phi                       0.0         -1000.0     1000.0      0.0
+
+  Local variable name                    Ophyd name (to be recorded as metadata)
+  dcm.m_theta                            dcm_m_theta
+  dcm.m_y                                dcm_m_y
+  dcm.m_z                                dcm_m_z
+  fourc.chi                              fourc_chi
+  fourc.omega                            fourc_omega
+  fourc.phi                              fourc_phi
+  fourc.tth                              fourc_tth
+  m1                                     m1
+  m10                                    m10
+  m11                                    m11
+  m12                                    m12
+  m13                                    m13
+  m14                                    m14
+  m15                                    m15
+  m16                                    m16
+  m2                                     m2
+  m3                                     m3
+  m4                                     m4
+  m7                                     m7
+  m8                                     m8
+  m9                                     m9
+  sixc.chi                               sixc_chi
+  sixc.delta                             sixc_delta
+  sixc.gamma                             sixc_gamma
+  sixc.mu                                sixc_mu
+  sixc.omega                             sixc_omega
+  sixc.phi                               sixc_phi
+
+But the "%wa" magic command can list objects with any label applied.
+If you leave out the specific label, you’ll get a listing categorized
+by each of the labels in use.
+
+Note that an object may have zero, one, or several labels; an object
+will be described under each of its labels.
+
+   %wa
+
+area_detector
+  Local variable name                    Ophyd name (to be recorded as metadata)
+  adsimdet                               adsimdet
+  adsimk                                 adsimk
+
+motor
+  Positioner                     Value       Low Limit   High Limit  Offset
+  dcm_m_theta                    0.0         -1000.0     1000.0      0.0
+  dcm_m_y                        0.0         -1000.0     1000.0      0.0
+  dcm_m_z                        0.0         -1000.0     1000.0      0.0
+  fourc_chi                      0.0         -1000.0     1000.0      0.0
+  fourc_omega                    0.0         -1000.0     1000.0      0.0
+  fourc_phi                      0.0         -1000.0     1000.0      0.0
+  fourc_tth                      0.0         -1000.0     1000.0      0.0
+  m1                             0.0         -1000.0     1000.0      0.0
+  m10                            0.0         -1000.0     1000.0      0.0
+  m11                            0.0         -1000.0     1000.0      0.0
+  m12                            0.0         -1000.0     1000.0      0.0
+  m13                            0.0         -1000.0     1000.0      0.0
+  m14                            0.0         -1000.0     1000.0      0.0
+  m15                            0.0         -1000.0     1000.0      0.0
+  m16                            0.0         -1000.0     1000.0      0.0
+  m2                             0.0         -1000.0     1000.0      0.0
+  m3                             0.0         -1000.0     1000.0      0.0
+  m4                             0.0         -1000.0     1000.0      0.0
+  m7                             0.0         -1000.0     1000.0      0.0
+  m8                             0.0         -1000.0     1000.0      0.0
+  m9                             0.0         -1000.0     1000.0      0.0
+  sixc_chi                       0.0         -1000.0     1000.0      0.0
+  sixc_delta                     0.0         -1000.0     1000.0      0.0
+  sixc_gamma                     0.0         -1000.0     1000.0      0.0
+  sixc_mu                        0.0         -1000.0     1000.0      0.0
+  sixc_omega                     0.0         -1000.0     1000.0      0.0
+  sixc_phi                       0.0         -1000.0     1000.0      0.0
+
+  Local variable name                    Ophyd name (to be recorded as metadata)
+  dcm.m_theta                            dcm_m_theta
+  dcm.m_y                                dcm_m_y
+  dcm.m_z                                dcm_m_z
+  fourc.chi                              fourc_chi
+  fourc.omega                            fourc_omega
+  fourc.phi                              fourc_phi
+  fourc.tth                              fourc_tth
+  m1                                     m1
+  m10                                    m10
+  m11                                    m11
+  m12                                    m12
+  m13                                    m13
+  m14                                    m14
+  m15                                    m15
+  m16                                    m16
+  m2                                     m2
+  m3                                     m3
+  m4                                     m4
+  m7                                     m7
+  m8                                     m8
+  m9                                     m9
+  sixc.chi                               sixc_chi
+  sixc.delta                             sixc_delta
+  sixc.gamma                             sixc_gamma
+  sixc.mu                                sixc_mu
+  sixc.omega                             sixc_omega
+  sixc.phi                               sixc_phi
+
+simulator
+  Local variable name                    Ophyd name (to be recorded as metadata)
+  noisy                                  noisy
+
+detectors
+  Local variable name                    Ophyd name (to be recorded as metadata)
+  noisy                                  noisy
+  scaler1                                scaler1
+
+scalers
+  Local variable name                    Ophyd name (to be recorded as metadata)
+  scaler1                                scaler1
+
+channel
+  Local variable name                    Ophyd name (to be recorded as metadata)
+  I0                                     I0
+  I00                                    I00
+  I000                                   I000
+  diode                                  diode
+  scaler1.channels.chan01.s              timebase
+  scaler1.channels.chan02.s              I0
+  scaler1.channels.chan03.s              scint
+  scaler1.channels.chan04.s              diode
+  scaler1.channels.chan05.s              I000
+  scaler1.channels.chan06.s              I00
+  scint                                  scint
+  timebase                               timebase
+
+counter
+  Local variable name                    Ophyd name (to be recorded as metadata)
+  I0                                     I0
+  I00                                    I00
+  I000                                   I000
+  diode                                  diode
+  scaler1.channels.chan01.s              timebase
+  scaler1.channels.chan02.s              I0
+  scaler1.channels.chan03.s              scint
+  scaler1.channels.chan04.s              diode
+  scaler1.channels.chan05.s              I000
+  scaler1.channels.chan06.s              I00
+  scint                                  scint
+  timebase                               timebase
+
+shutters
+  Local variable name                    Ophyd name (to be recorded as metadata)
+  shutter                                shutter
+
+
+"listplans()" function
+======================
+
+Another type of control is the bluesky *plan*, a Python generator
+function used by the bluesky "RunEngine" to perform data acquisition
+procedures.
+
+Here, we list the plans available when the bluesky training instrument
+is started:
+
+   from apstools.utils import listplans
+   listplans()
+
+======================= ==================================================
+plan                    doc
+======================= ==================================================
+lup                     Lineup a positioner.
+two_pass_scan           Find the peak of noisy v. m1 in the range of + ...
+findpeak_multipass      find peak of noisy v. m1 by repeated scans wit ...
+repeat_findpeak         Repeat findpeak_multipass() with new parameter ...
+randomize_noisy_peak    Randomize the parameters of the noisy peak sim ...
+lineup2                 Lineup and center a given mover, relative to c ...
+wait_dm_upload          (bluesky plan) Wait for APS DM data acquisitio ...
+redefine_motor_position Set EPICS motor record's user coordinate to `` ...
+======================= ==================================================
+
+Any of these plans may be queried for its help or source code using
+the ipython "?" (help) or "??" (source code) suffixes. Let’s look at
+one of them in more detail:
+
+   redefine_motor_position?
+
+[0;31mSignature:[0m [0mredefine_motor_position[0m[0;34m([0m[0mmotor[0m[0;34m,[0m [0mnew_position[0m[0;34m)[0m[0;34m[0m[0;34m[0m[0m
+[0;31mDocstring:[0m Set EPICS motor record's user coordinate to ``new_position``.
+[0;31mFile:[0m      ~/.conda/envs/bluesky_2024_2/lib/python3.11/site-packages/apstools/utils/misc.py
+[0;31mType:[0m      function
+
+The source code is shown when two questions marks are used.
+
+   redefine_motor_position??
+
+[0;31mSignature:[0m [0mredefine_motor_position[0m[0;34m([0m[0mmotor[0m[0;34m,[0m [0mnew_position[0m[0;34m)[0m[0;34m[0m[0;34m[0m[0m
+[0;31mSource:[0m
+[0;32mdef[0m [0mredefine_motor_position[0m[0;34m([0m[0mmotor[0m[0;34m,[0m [0mnew_position[0m[0;34m)[0m[0;34m:[0m[0;34m[0m
+[0;34m[0m    [0;34m"""Set EPICS motor record's user coordinate to ``new_position``."""[0m[0;34m[0m
+[0;34m[0m    [0;32myield[0m [0;32mfrom[0m [0mbps[0m[0;34m.[0m[0mmv[0m[0;34m([0m[0mmotor[0m[0;34m.[0m[0mset_use_switch[0m[0;34m,[0m [0;36m1[0m[0;34m)[0m[0;34m[0m
+[0;34m[0m    [0;32myield[0m [0;32mfrom[0m [0mbps[0m[0;34m.[0m[0mmv[0m[0;34m([0m[0mmotor[0m[0;34m.[0m[0muser_setpoint[0m[0;34m,[0m [0mnew_position[0m[0;34m)[0m[0;34m[0m
+[0;34m[0m    [0;32myield[0m [0;32mfrom[0m [0mbps[0m[0;34m.[0m[0mmv[0m[0;34m([0m[0mmotor[0m[0;34m.[0m[0mset_use_switch[0m[0;34m,[0m [0;36m0[0m[0;34m)[0m[0;34m[0m[0;34m[0m[0m
+[0;31mFile:[0m      ~/.conda/envs/bluesky_2024_2/lib/python3.11/site-packages/apstools/utils/misc.py
+[0;31mType:[0m      function
+
+The same "listplans()" command can report the plans from an imported
+module. Here, using "import bluesky.plans as bp)":
+
+   listplans(bp)
+
+========================================= ==================================================
+plan                                      doc
+========================================= ==================================================
+bluesky.plans.adaptive_scan               Scan over one variable with adaptively tuned s ...
+bluesky.plans.count                       Take one or more readings from detectors.
+bluesky.plans.fly                         Perform a fly scan with one or more 'flyers'.
+bluesky.plans.grid_scan                   Scan over a mesh; each motor is on an independ ...
+bluesky.plans.inner_product_scan          ---
+bluesky.plans.list_grid_scan              Scan over a mesh; each motor is on an independ ...
+bluesky.plans.list_scan                   Scan over one or more variables in steps simul ...
+bluesky.plans.log_scan                    Scan over one variable in log-spaced steps.
+bluesky.plans.outer_product_scan          Scan over a mesh; each motor is on an independ ...
+bluesky.plans.ramp_plan                   Take data while ramping one or more positioners.
+bluesky.plans.rel_adaptive_scan           Relative scan over one variable with adaptivel ...
+bluesky.plans.rel_grid_scan               Scan over a mesh relative to current position.
+bluesky.plans.rel_list_grid_scan          Scan over a mesh; each motor is on an independ ...
+bluesky.plans.rel_list_scan               Scan over one variable in steps relative to cu ...
+bluesky.plans.rel_log_scan                Scan over one variable in log-spaced steps rel ...
+bluesky.plans.rel_scan                    Scan over one multi-motor trajectory relative  ...
+bluesky.plans.rel_spiral                  Relative spiral scan
+bluesky.plans.rel_spiral_fermat           Relative fermat spiral scan
+bluesky.plans.rel_spiral_square           Relative square spiral scan, centered around c ...
+bluesky.plans.relative_adaptive_scan      Relative scan over one variable with adaptivel ...
+bluesky.plans.relative_inner_product_scan ---
+bluesky.plans.relative_list_scan          Scan over one variable in steps relative to cu ...
+bluesky.plans.relative_log_scan           Scan over one variable in log-spaced steps rel ...
+bluesky.plans.relative_outer_product_scan Scan over a mesh relative to current position.
+bluesky.plans.relative_scan               Scan over one multi-motor trajectory relative  ...
+bluesky.plans.relative_spiral             Relative spiral scan
+bluesky.plans.relative_spiral_fermat      Relative fermat spiral scan
+bluesky.plans.scan                        Scan over one multi-motor trajectory.
+bluesky.plans.scan_nd                     Scan over an arbitrary N-dimensional trajectory.
+bluesky.plans.spiral                      Spiral scan, centered around (x_start, y_start)
+bluesky.plans.spiral_fermat               Absolute fermat spiral scan, centered around ( ...
+bluesky.plans.spiral_square               Absolute square spiral scan, centered around ( ...
+bluesky.plans.tune_centroid               plan: tune a motor to the centroid of signal(m ...
+bluesky.plans.tweak                       Move and motor and read a detector with an int ...
+bluesky.plans.x2x_scan                    Relatively scan over two motors in a 2:1 ratio
+========================================= ==================================================
+
+Similarly, for the plans provided by "apstools":
+
+   import apstools.plans
+   listplans(apstools.plans)
+
+==================================== ==================================================
+plan                                 doc
+==================================== ==================================================
+apstools.plans.addDeviceDataAsStream Renamed to write_stream().  Will remove with r ...
+apstools.plans.documentation_run     Save text as a bluesky run.
+apstools.plans.edge_align            Align to the edge given mover & detector data, ...
+apstools.plans.execute_command_list  plan: execute the command list
+apstools.plans.label_stream_stub     Writes ophyd-labeled objects to open bluesky r ...
+apstools.plans.label_stream_wrapper  Decorator support: Write labeled device(s) to  ...
+apstools.plans.lineup                (use ``lineup2()`` now) Lineup and center a gi ...
+apstools.plans.lineup2               Lineup and center a given mover, relative to c ...
+apstools.plans.mesh_list_grid_scan   Scan over a multi-dimensional mesh, collecting ...
+apstools.plans.nscan                 Scan over ``n`` variables moved together, each ...
+apstools.plans.request_input         Request input from the user.  Returns ``True`` ...
+apstools.plans.run_blocking_function Run a blocking function as a bluesky plan, in  ...
+apstools.plans.run_command_file      plan: execute a list of commands from a text o ...
+apstools.plans.sscan_1D              simple 1-D scan using EPICS synApps sscan record
+apstools.plans.stage_sigs_wrapper    Save stage_sigs from each device and restore a ...
+apstools.plans.tune_axes             Bluesky plan to tune a list of axes in sequence.
+apstools.plans.write_stream          add an ophyd Device as an additional document  ...
+==================================== ==================================================
+
+
+"findCatalogsInNamespace()" function
+====================================
+
+To learn what databroker catalogs are already loaded (in the default
+namespace), use "apstools.utils.findCatalogsInNamespace()":
+
+   from apstools.utils import findCatalogsInNamespace
+   findCatalogsInNamespace()
+
+{'cat': <Intake catalog: training>}
+
+It is also possible to get a list of available databroker catalog
+names using the "databroker" package. This list includes any catalogs
+with available configuration details, even if they are not loaded into
+memory yet.
+
+   import databroker
+   list(databroker.catalog)
+
+['bdp2022',
+ 'class_2021_03',
+ '6idb_export',
+ 'apstools_test',
+ 'class_data_examples',
+ 'usaxs_test',
+ 'korts202106',
+ 'training']

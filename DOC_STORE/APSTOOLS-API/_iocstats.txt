@@ -1,0 +1,20 @@
+synApps IOC statistics
+**********************
+
+The synApps iocStats support is in the synApps "iocStats" module:
+https://github.com/epics-modules/iocStats
+
+Ophyd support for the iocStats support
+
+Public Structures
+
++------------+--------------------------------------------------------------------------------------------+
+| "IocStats  | synApps IOC stats                                                                          |
+| Device"(*  |                                                                                            |
+| args,      |                                                                                            |
+| **kwargs)  |                                                                                            |
++------------+--------------------------------------------------------------------------------------------+
+
+class apstools.synApps.iocstats.IocStatsDevice(*args: Any, **kwargs: Any)
+
+   synApps IOC stats
