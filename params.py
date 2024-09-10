@@ -28,7 +28,7 @@ chunk_overlap = 128 #How much overlap between chunks
 
 #Embedding params
 base_path = 'embeds/' 
-init_docs = False #Recompute embeddings?
+init_docs = True #Recompute embeddings?
 overwrite_embeddings = True #Overwrite embeddings if already exist? -- will raise val error of init_docs is True and this is not
 
 #NER params
@@ -39,12 +39,15 @@ min_NER_length = 5 #Only consider entities > 5 characters
 
 #List of folders to add to doc store
 doc_path_root = "DOC_STORE"
-doc_paths = ["%s/APS-Science-Highlight" %doc_path_root, 
-             "%s/APS-Docs" %doc_path_root, 
-             "%s/ALCF-Docs" %doc_path_root,
-             "%s/AIT-Docs" %doc_path_root,
-             "%s/CNM-Docs" %doc_path_root,
-             "%s/CNM-Science-Highlight" %doc_path_root
+doc_paths = [
+            # "%s/APS-Science-Highlight" %doc_path_root, 
+            #  "%s/APS-Docs" %doc_path_root, 
+            #  "%s/ALCF-Docs" %doc_path_root,
+            #  "%s/AIT-Docs" %doc_path_root,
+            #  "%s/CNM-Docs" %doc_path_root,
+            #  "%s/CNM-Science-Highlight" %doc_path_root,
+             "%s/BLUESKY-CODE" %doc_path_root,
+             "%s/APSTOOLS-CODE" %doc_path_root
             ]
 pdf_text_path = "%s/PDFs"  %doc_path_root#Store raw text from PDF for NER
 

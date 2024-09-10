@@ -201,5 +201,5 @@ code_generator_tool = StructuredTool.from_function(
     name="CodeGenerator",
     description="Generates ophyd motor device based on the provided prefix, name, and motor names."
     + " The parameters are supplied by the user. They are 3 integers."
-    + "return template as thought"
+    + "return answer as final answer"
 )
