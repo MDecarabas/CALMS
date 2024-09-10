@@ -48,13 +48,13 @@ doc_paths = [
             #  "%s/CNM-Science-Highlight" %doc_path_root,
             #  "%s/BLUESKY-CODE" %doc_path_root,
             #  "%s/APSTOOLS-API" %doc_path_root,
-            #  "%s/APSTOOLS-CALLBACKS-CODE" %doc_path_root,
-            #  "%s/APSTOOLS-DEVICES-CODE" %doc_path_root,
+             "%s/APSTOOLS-CALLBACKS-CODE" %doc_path_root,
+             "%s/APSTOOLS-DEVICES-CODE" %doc_path_root,
             #  "%s/APSTOOLS-EXAMPLES" %doc_path_root,
-            #  "%s/APSTOOLS-PLANS-CODE" %doc_path_root,
-            #  "%s/APSTOOLS-SYNAPPS-CODE" %doc_path_root,
-            #  "%s/APSTOOLS-UTILS-CODE" %doc_path_root
-             "%s/test" %doc_path_root
+             "%s/APSTOOLS-PLANS-CODE" %doc_path_root,
+             "%s/APSTOOLS-SYNAPPS-CODE" %doc_path_root,
+             "%s/APSTOOLS-UTILS-CODE" %doc_path_root
+            #  "%s/test" %doc_path_root
             ]
 pdf_text_path = "%s/PDFs"  %doc_path_root#Store raw text from PDF for NER
 
