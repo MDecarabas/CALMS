@@ -18,7 +18,7 @@ anl_llm_debug = True
 anl_llm_debug_fp = 'anl_outputs.log'
 anl_user = "ecodrea"
 # One of: gpt35, gpt35large, gpt4, gpt4large
-anl_llm_model = 'gpt35' 
+anl_llm_model = 'gpt4large' 
 
 anl_embed_url_path = 'keys/ANL_EMBED_URL'
 
@@ -48,12 +48,16 @@ doc_paths = [
             #  "%s/CNM-Science-Highlight" %doc_path_root,
             #  "%s/BLUESKY-CODE" %doc_path_root,
             #  "%s/APSTOOLS-API" %doc_path_root,
-             "%s/APSTOOLS-CALLBACKS-CODE" %doc_path_root,
+
+            #  "%s/APSTOOLS-CALLBACKS-CODE" %doc_path_root,
+
              "%s/APSTOOLS-DEVICES-CODE" %doc_path_root,
             #  "%s/APSTOOLS-EXAMPLES" %doc_path_root,
+
              "%s/APSTOOLS-PLANS-CODE" %doc_path_root,
-             "%s/APSTOOLS-SYNAPPS-CODE" %doc_path_root,
-             "%s/APSTOOLS-UTILS-CODE" %doc_path_root
+            #  "%s/APSTOOLS-SYNAPPS-CODE" %doc_path_root,
+            #  "%s/APSTOOLS-UTILS-CODE" %doc_path_root
+            
             #  "%s/test" %doc_path_root
             ]
 pdf_text_path = "%s/PDFs"  %doc_path_root#Store raw text from PDF for NER
