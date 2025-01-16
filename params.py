@@ -49,10 +49,10 @@ doc_paths = ["%s/APS-Science-Highlight" %doc_path_root,
              "%s/CNM-Docs" %doc_path_root,
              "%s/CNM-Science-Highlight" %doc_path_root
             ]
-pdf_text_path = "%s/PDFs"  %doc_path_root#Store raw text from PDF for NER
+pdf_text_path = "%s/PDFs"  %doc_path_root #Store raw text from PDF for NER
 
 #Spec Params
-spec_init = True
+spec_init = False
 
 # Tool Params
 use_wolfram = False

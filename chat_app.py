@@ -5,7 +5,7 @@ import params
 if params.set_visible_devices:
     os.environ["CUDA_VISIBLE_DEVICES"] = params.visible_devices
 
-import llms, prompts, bot_tools
+import llms, prompts, bot_tools, bs_tools
 
 import torch
 
@@ -370,6 +370,28 @@ class PolybotExecChat(ToolChat):
         
         return memory, agent_executor
     
+class BlueskyExecChat(ToolChat):
+    def _init_chain(self):
+        tools = [bs_tools.exec_polybot_tool, bs_tools.exec_polybot_lint_tool]
+
+        memory = ConversationBufferWindowMemory(memory_key="chat_history", k=7)
+
+
+        agent = create_json_chat_agent(
+                                       tools=tools, 
+                                       llm=self.llm,
+                                       prompt=prompts.json_tool_prompt)
+
+        agent_executor = AgentExecutor(
+            agent=agent, tools=tools, handle_parsing_errors=True,
+            max_iterations = 15,
+            verbose=True
+        )
+        
+        self.memory = memory
+        self.conversation = agent_executor
+        
+        return memory, agent_executor
 
 """
 ===========================
@@ -536,7 +558,21 @@ def main_interface(params, llm, embeddings):
         
             clear.click(lambda: polybot_exec.memory.clear(), None, chatbot, queue=False)
 
+        with gr.Tab("Bluesky Exec"):
+            chatbot, msg, clear, disp_prompt_tool, submit_btn = init_chat_layout() #Init layout
 
+            bluesky_exec = BlueskyExecChat(llm, embeddings, None)
+            bluesky_exec._init_chain()
+
+            #Pass an empty string to context when don't want domain specific context
+            msg.submit(bluesky_exec.add_message, [msg, chatbot], [msg, chatbot], queue=False).then(
+                bluesky_exec.generate_response, [chatbot, disp_prompt_tool], chatbot #Use bot with context
+            )
+            submit_btn.click(bluesky_exec.add_message, [msg, chatbot], [msg, chatbot], queue=False).then(
+                bluesky_exec.generate_response, [chatbot, disp_prompt_tool], chatbot #Use bot with context
+            )
+        
+            clear.click(lambda: bluesky_exec.memory.clear(), None, chatbot, queue=False)
     
         with gr.Tab("Tips & Tricks"):
             gr.Markdown("""
