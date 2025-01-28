@@ -1,0 +1,37 @@
+#F 20250116-135301.dat
+#E 1737057181
+#D Thu Jan 16 13:53:01 2025
+#C Bluesky  user = ecodrea  host = galadriel.xray.aps.anl.gov
+#O0 m1  m2
+#o0 m1  m2
+
+#S 1  list_scan(detectors=['noisy_det'], args='['m1', [1, 1, 3], 'm2', [25, 16, 9]]', per_step='None')
+#D Thu Jan 16 14:00:31 2025
+#C Thu Jan 16 14:00:31 2025.  plan_type = generator
+#C Thu Jan 16 14:00:31 2025.  uid = 731bdb56-2562-4000-9c85-34a553e58b63
+#MD uid = 731bdb56-2562-4000-9c85-34a553e58b63
+#MD beamline_id = instrument
+#MD conda_prefix = /home/beams/ECODREA/.conda/envs/calms
+#MD databroker_catalog = temp
+#MD detectors = ['noisy_det']
+#MD iconfig = {'ICONFIG_VERSION': '2.0.0', 'DATABROKER_CATALOG': 'temp', 'RUN_ENGINE': {'DEFAULT_METADATA': {'beamline_id': 'instrument', 'instrument_name': 'Most Glorious Scientific Instrument', 'proposal_id': 'commissioning', 'databroker_catalog': 'temp'}, 'MD_STORAGE_HANDLER': 'StoredDict', 'MD_PATH': '.re_md_dict.yml', 'USE_PROGRESS_BAR': False}, 'USE_BLUESKY_MAGICS': True, 'AREA_DETECTOR': {'ALLOW_PLUGIN_WARMUP': True, 'BLUESKY_FILES_ROOT': '/path/to/data/', 'IMAGE_DIR': 'sub/directory/path', 'HDF5_FILE_TEMPLATE': '%s%s_%6.6d.h5'}, 'SPEC_DATA_FILES': {'FILE_EXTENSION': 'dat'}, 'DM_SETUP_FILE': '/home/dm/etc/dm.setup.sh', 'OPHYD': {'TIMEOUTS': {'PV_READ': 5, 'PV_WRITE': 5, 'PV_CONNECTION': 5}}, 'XMODE_DEBUG_LEVEL': 'Minimal'}
+#MD instrument_name = Most Glorious Scientific Instrument
+#MD login_id = ecodrea@galadriel.xray.aps.anl.gov
+#MD motors = ['m1', 'm2']
+#MD num_intervals = 2
+#MD num_points = 3
+#MD pid = 3888834
+#MD plan_pattern = inner_list_product
+#MD plan_pattern_args = {'args': ["MyEpicsMotor(prefix='eac99:m1', name='m1', settle_time=0.0, timeout=None, read_attrs=['user_readback', 'user_setpoint'], configuration_attrs=['user_offset', 'user_offset_dir', 'velocity', 'acceleration', 'motor_egu'])", [1, 1, 3], "MyEpicsMotor(prefix='eac99:m2', name='m2', settle_time=0.0, timeout=None, read_attrs=['user_readback', 'user_setpoint'], configuration_attrs=['user_offset', 'user_offset_dir', 'velocity', 'acceleration', 'motor_egu'])", [25, 16, 9]]}
+#MD plan_pattern_module = bluesky.plan_patterns
+#MD proposal_id = commissioning
+#MD versions = {'apstools': '1.6.19', 'bluesky': '1.12.0', 'databroker': '1.2.5', 'epics': '3.5.2', 'h5py': '3.11.0', 'intake': '0.6.4', 'matplotlib': '3.8.0', 'numpy': '1.26.4', 'ophyd': '1.9.0', 'pyRestTable': '2020.0.8', 'python': '3.11.5', 'pysumreg': '1.0.6', 'spec2nexus': '2021.2.6'}
+#P0 1.0 5.0
+#N 7
+#L m1  m2  Epoch_float  Epoch  m1_user_setpoint  m2_user_setpoint  noisy_det
+1.0 25.0 20.303951263427734 20 1.0 25.0 1.073576416890931
+1.0 16.0 29.713291883468628 30 1.0 16.0 1.03097074199057
+3.0 9.0 37.02230381965637 37 3.0 9.0 1.065272483954033
+#C Thu Jan 16 14:01:08 2025.  num_events_label_start_motor = 1
+#C Thu Jan 16 14:01:08 2025.  num_events_primary = 3
+#C Thu Jan 16 14:01:08 2025.  exit_status = success

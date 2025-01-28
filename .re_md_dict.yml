@@ -1,0 +1,52 @@
+# Written by StoredDict.
+# Dictionary contents written: 2025-01-16 14:00:36.204469
+
+beamline_id: instrument
+conda_prefix: /home/beams/ECODREA/.conda/envs/calms
+databroker_catalog: temp
+iconfig:
+  AREA_DETECTOR:
+    ALLOW_PLUGIN_WARMUP: true
+    BLUESKY_FILES_ROOT: /path/to/data/
+    HDF5_FILE_TEMPLATE: '%s%s_%6.6d.h5'
+    IMAGE_DIR: sub/directory/path
+  DATABROKER_CATALOG: temp
+  DM_SETUP_FILE: /home/dm/etc/dm.setup.sh
+  ICONFIG_VERSION: 2.0.0
+  OPHYD:
+    TIMEOUTS:
+      PV_CONNECTION: 5
+      PV_READ: 5
+      PV_WRITE: 5
+  RUN_ENGINE:
+    DEFAULT_METADATA:
+      beamline_id: instrument
+      databroker_catalog: temp
+      instrument_name: Most Glorious Scientific Instrument
+      proposal_id: commissioning
+    MD_PATH: .re_md_dict.yml
+    MD_STORAGE_HANDLER: StoredDict
+    USE_PROGRESS_BAR: false
+  SPEC_DATA_FILES:
+    FILE_EXTENSION: dat
+  USE_BLUESKY_MAGICS: true
+  XMODE_DEBUG_LEVEL: Minimal
+instrument_name: Most Glorious Scientific Instrument
+login_id: ecodrea@galadriel.xray.aps.anl.gov
+pid: 3888834
+proposal_id: commissioning
+scan_id: 1
+versions:
+  apstools: 1.6.19
+  bluesky: 1.12.0
+  databroker: 1.2.5
+  epics: 3.5.2
+  h5py: 3.11.0
+  intake: 0.6.4
+  matplotlib: 3.8.0
+  numpy: 1.26.4
+  ophyd: 1.9.0
+  pyRestTable: 2020.0.8
+  pysumreg: 1.0.6
+  python: 3.11.5
+  spec2nexus: 2021.2.6

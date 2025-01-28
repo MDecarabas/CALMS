@@ -1,0 +1,22 @@
+# IPython log file
+
+# Thu, 16 Jan 2025 13:16:00
+listobjects()
+# Thu, 16 Jan 2025 13:16:25
+motor2
+#[Out]# SynAxis(prefix='', name='motor', read_attrs=['readback', 'setpoint'], configuration_attrs=['velocity', 'acceleration'])
+# Thu, 16 Jan 2025 13:16:41
+motor2.get()
+#[Out]# SynAxisTuple(readback=0, setpoint=0, velocity=1, acceleration=1, unused=1)
+# Thu, 16 Jan 2025 13:17:01
+motor2.put(5)
+# Thu, 16 Jan 2025 13:17:07
+motor2.put(5.0)
+# Thu, 16 Jan 2025 13:18:09
+bps.mv(motor2, 5.0)
+#[Out]# <generator object mv at 0x7fd3a346e8a0>
+# Thu, 16 Jan 2025 13:18:15
+motor2.get()
+#[Out]# SynAxisTuple(readback=0, setpoint=0, velocity=1, acceleration=1, unused=1)
+# Thu, 16 Jan 2025 13:52:45
+exit()
