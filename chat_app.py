@@ -372,7 +372,7 @@ class PolybotExecChat(ToolChat):
     
 class BlueskyExecChat(ToolChat):
     def _init_chain(self):
-        tools = []
+        tools = [bs_tools.exec_bs_tool]
 
         memory = ConversationBufferWindowMemory(memory_key="chat_history", k=7)
 

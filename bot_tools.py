@@ -12,7 +12,6 @@ import pexpect
 import os
 import subprocess
 import params
-import params
 
 
 """
