@@ -374,3 +374,50 @@ def mp_get_lattice(material_formula: str, apikey: str) -> dict:
         'gamma': lattice['gamma'],
     }
     return info
+
+"""
+===============================
+Bluesky Tools
+===============================
+"""
+
+def bs_ipython_exec_cmd(py_str: str):
+
+    ipython_file_path = "/home/beams0/ECODREA/CALMS/bs_test_output.py"
+    
+    # Write the command to the file
+    with open(ipython_file_path, 'a') as file:
+        file.write(py_str + '\n')
+    
+    return "Command Executed and Saved"
+
+
+with open('bits_startup.py', 'r') as startup_file:
+    BS_STARTUP_FILE = ''.join(startup_file.readlines())
+
+with open('bs_plans.py', 'r') as plans_file:
+    BS_PLANS_FILE = ''.join(plans_file.readlines())
+
+with open('bits_devices.py', 'r') as devices_file:
+    BS_DEVICES_FILE = ''.join(devices_file.readlines())
+
+BS_PLANS_FILE_FILTER = BS_PLANS_FILE.replace("{", "")
+BS_PLANS_FILE_FILTER = BS_PLANS_FILE_FILTER.replace("}", "")
+
+BS_DEVICES_FILE_FILTER = BS_DEVICES_FILE.replace("{", "")
+BS_DEVICES_FILE_FILTER = BS_DEVICES_FILE_FILTER.replace("}", "")
+
+BS_STARTUP_FILE_FILTER = BS_STARTUP_FILE.replace("{", "")
+BS_STARTUP_FILE_FILTER = BS_STARTUP_FILE_FILTER.replace("}", "")
+
+exec_bs_tool = StructuredTool.from_function(bs_ipython_exec_cmd,
+                                            name="iPython Writer",
+                                            description="Look at the devices, plans, and the startup files provided." 
+                                            + "Based on the input generate a RE Bluesky action that uses the correct devices and plans"
+                                            + "Here are some rules to follow: \n"
+                                            + "Before running the experiment pretend to create a new ipython session by running from instrument.startup import *"
+                                            + "The startup.py file is provided below \n\n" + BS_STARTUP_FILE_FILTER
+                                            + "Devices are brought into the ipython session through startup.py file and are declared in the init. This is the line that brings in devices: from .devices import *"
+                                            + "The devices available are provided below \n\n:" + BS_DEVICES_FILE_FILTER
+                                            + "Plans are brought into the ipython session through the startup.py file. This is the line that brings in plans: from bluesky.plans import * as bp"
+                                            + "The plans available are provided below \n\n:" + BS_PLANS_FILE_FILTER)

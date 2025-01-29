@@ -5,7 +5,7 @@ import params
 if params.set_visible_devices:
     os.environ["CUDA_VISIBLE_DEVICES"] = params.visible_devices
 
-import llms, prompts, bot_tools, bs_tools
+import llms, prompts, bot_tools
 
 import torch
 
@@ -372,7 +372,7 @@ class PolybotExecChat(ToolChat):
     
 class BlueskyExecChat(ToolChat):
     def _init_chain(self):
-        tools = [bs_tools.exec_bs_tool]
+        tools = [bot_tools.exec_bs_tool]
 
         memory = ConversationBufferWindowMemory(memory_key="chat_history", k=7)
 
